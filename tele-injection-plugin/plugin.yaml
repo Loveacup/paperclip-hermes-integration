@@ -1,0 +1,17 @@
+{
+  "manifest_version": 2,
+  "name": "tele-injection-plugin",
+  "version": "0.3.0",
+  "description": "Profile-owned Telegram metadata injection; exact DM or sender-scoped ordinary group binding, opt-in only",
+  "kind": "standalone",
+  "capabilities": [],
+  "provides_tools": [],
+  "provides_hooks": [],
+  "config_schema": {
+    "config_path": {
+      "type": "str",
+      "default": "",
+      "description": "Absolute path to the single nonsecret integration JSON; empty disables this plugin"
+    }
+  }
+}

@@ -1,0 +1,2 @@
+{"type": "tool_execution_end", "isError": true}
+{"type": "agent_end", "messages": [{"role": "assistant", "provider": "adapter-offline", "model": "fixture", "content": [{"type": "text", "text": "offline native complete"}], "stopReason": "stop"}], "isTerminal": true}

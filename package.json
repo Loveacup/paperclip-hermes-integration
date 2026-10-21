@@ -1,0 +1,22 @@
+{
+  "name": "paperclip-hermes-integration",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {"node": ">=24.11.0"},
+  "scripts": {
+    "test": "node scripts/test.mjs",
+    "test:host": "node scripts/host-tests.mjs hermes",
+    "test:server": "node scripts/host-tests.mjs server",
+    "test:installed-omp": "node scripts/host-tests.mjs omp",
+    "config:check": "node scripts/config.mjs",
+    "setup": "node scripts/setup.mjs"
+  },
+  "dependencies": {
+    "@paperclipai/adapter-utils": "2026.1005.0",
+    "@paperclipai/hermes-paperclip-adapter": "2026.1005.0",
+    "ws": "8.22.0",
+    "ajv": "8.20.0"
+  }
+}

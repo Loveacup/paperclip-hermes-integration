@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "companyId": "00000000-0000-4000-8000-000000000001",
+  "ceoAgentId": "00000000-0000-4000-8000-000000000002",
+  "apiUrl": "http://127.0.0.1:3100",
+  "authEnv": "PAPERCLIP_BRIDGE_READ_IDENTITY",
+  "bridge": {
+    "statePath": ".local/runtime/bridge-state.json",
+    "hermesAdapterRoot": "node_modules/@paperclipai/hermes-paperclip-adapter",
+    "serviceLabel": "org.example.paperclip-event-bridge"
+  },
+  "plugin": {
+    "enabled": false,
+    "ownerHome": ".local/example-hermes-home",
+    "routingHome": ".local/example-hermes-home",
+    "cursorDir": ".local/runtime/cursors",
+    "instructionsPath": "docs/CEO-AGENTS.md",
+    "readCommand": ["node", "{repo}/event-bridge/bridge.mjs", "--config", "{config}", "--read"],
+    "accept_nonatomic_risk": false,
+    "interval": 5,
+    "binding": {
+      "mode": "conversation",
+      "profile": "default",
+      "platform": "telegram",
+      "chat_type": "group",
+      "chat_id": "-1000000000000",
+      "user_id": "1000000000",
+      "thread_id": "",
+      "session_key": "agent:main:telegram:group:-1000000000000:1000000000",
+      "session_id": "synthetic-session-replace-before-enable"
+    }
+  },
+  "omp": {"command": "/usr/local/bin/omp"},
+  "host": {"hermesSource": ".local/host/hermes-agent", "paperclipServerRoot": ".local/host/paperclip-server"}
+}

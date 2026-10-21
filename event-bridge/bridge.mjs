@@ -270,5 +270,3 @@ export async function main(args=process.argv.slice(2), deps={}) {
 if (process.argv[1] && import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href) {
   main().catch(error=>{const reason=String(error?.message??'');console.error(JSON.stringify({ok:false,error:/^(state_identity_|incompatible_hermes_|integration_config_|missing_auth_environment|invalid_integration_config|invalid_binding)/.test(reason)?reason:'bridge_failed_check_arguments_auth_state_or_lock'}));process.exitCode=1;});
 }
-
-

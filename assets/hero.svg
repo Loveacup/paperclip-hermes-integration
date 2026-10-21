@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">Paperclip × Hermes</title>
+  <desc id="desc">One task control plane connects a Hermes conversation and a native OMP worker. A conceptual architecture illustration, not a runtime screenshot.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#0e1728"/><stop offset="1" stop-color="#141c30"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#5265dd" stop-opacity=".22"/><stop offset="1" stop-color="#5265dd" stop-opacity="0"/></radialGradient>
+    <linearGradient id="edge"><stop stop-color="#efca83"/><stop offset="1" stop-color="#8a9fff"/></linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1 9 5 1 9" fill="none" stroke="#91a1c3" stroke-width="1.5"/></marker>
+  </defs>
+  <rect x="1" y="1" width="1198" height="418" rx="24" fill="url(#bg)" stroke="#29344b"/>
+  <ellipse cx="980" cy="70" rx="440" ry="300" fill="url(#glow)"/>
+  <path d="M48 0h210" stroke="url(#edge)" stroke-width="3"/>
+  <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+    <text x="62" y="56" fill="#c2a974" font-size="12" font-weight="600" letter-spacing="3">NATIVE AGENT INTEGRATION</text>
+    <text x="60" y="116" fill="#f3f4fa" font-size="46" font-weight="700" letter-spacing="-1.4">Paperclip <tspan fill="#8190b6" font-weight="400">×</tspan> Hermes</text>
+    <text x="62" y="150" fill="#a6b3cb" font-size="18">Coordinate the work. Keep the conversation.</text>
+    <g fill="#182237" stroke="#34415b">
+      <rect x="62" y="222" width="374" height="118" rx="16"/>
+      <rect x="650" y="194" width="488" height="82" rx="14"/>
+      <rect x="650" y="300" width="488" height="82" rx="14"/>
+    </g>
+    <rect x="82" y="244" width="42" height="42" rx="12" fill="#3b3340"/>
+    <path d="m98 274 11-11a5 5 0 0 0-7-7l-12 12a8 8 0 0 0 11 11l13-13" fill="none" stroke="#efca83" stroke-width="2.2" stroke-linecap="round"/>
+    <text x="140" y="269" fill="#f4e0b5" font-size="25" font-weight="650">Paperclip</text>
+    <text x="85" y="312" fill="#a6b3cb" font-size="15">Tasks · permissions · run lifecycle</text>
+    <path d="M436 280h88" fill="none" stroke="#7282a3" stroke-width="1.6"/>
+    <path d="M524 280v-45h116" fill="none" stroke="#7282a3" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <path d="M524 280v61h116" fill="none" stroke="#7282a3" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <circle cx="524" cy="280" r="3" fill="#91a1c3"/>
+    <text x="545" y="221" fill="#99a8ca" font-size="11" letter-spacing=".5">EVENTS</text>
+    <text x="545" y="328" fill="#99a8ca" font-size="11" letter-spacing=".5">TASKS</text>
+    <rect x="669" y="212" width="42" height="42" rx="12" fill="#303254"/>
+    <path d="M680 224h20v13h-9l-5 5v-5h-6z" fill="none" stroke="#b0afff" stroke-width="1.8" stroke-linejoin="round"/>
+    <text x="728" y="229" fill="#d5d2ff" font-size="21" font-weight="650">Hermes</text>
+    <text x="728" y="253" fill="#a6b3cb" font-size="14">A precisely bound conversation</text>
+    <rect x="669" y="318" width="42" height="42" rx="12" fill="#193a41"/>
+    <path d="m681 330 6 6-6 6m11 0h8" fill="none" stroke="#88d7c9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="728" y="335" fill="#b2e9df" font-size="21" font-weight="650">OMP</text>
+    <text x="728" y="359" fill="#a6b3cb" font-size="14">Native JSON execution · verified model identity</text>
+    <text x="62" y="388" fill="#7383a5" font-size="12" letter-spacing=".8">ONE CONTROL PLANE  /  ONE CONFIGURATION  /  NO SECOND SCHEDULER</text>
+  </g>
+</svg>

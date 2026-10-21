@@ -1,26 +1,44 @@
-# Paperclip × Hermes integration
+<div align="center">
 
-让 Paperclip 的任务变化进入明确绑定的 Hermes 会话，让 OMP worker 保留原生执行与模型校验——不另建调度系统。
+<img src="assets/hero.svg" alt="Paperclip coordinates tasks, Hermes hosts the conversation, and OMP executes native worker runs." width="100%">
 
-**[Quick Start](#quick-start) · [让 AI 帮你配置](#让-ai-帮你配置) · [配置与部署](docs/DEPLOYMENT.md) · [兼容性与回滚](docs/COMPATIBILITY.md)**
+# Paperclip × Hermes
 
-> English: A portable metadata bridge, sender-scoped Hermes injection plugin and native
-> OMP adapter. One nonsecret JSON configuration; synthetic offline tests by default.
-> This is an integration candidate, not a production deployment or delivery guarantee.
+**Your task control plane. Your agent conversation. Connected.**
 
-## 能做什么
+[![MIT License](https://img.shields.io/badge/license-MIT-d4b47b?style=flat-square)](LICENSE)
+[![Node.js 24.11.0+](https://img.shields.io/badge/Node.js-24.11.0%2B-6eb593?style=flat-square)](package.json)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-84aef0?style=flat-square)](#quick-start)
+[![Offline checks on macOS and Linux](https://img.shields.io/badge/checks-macOS%20%2B%20Linux-a59bef?style=flat-square)](https://github.com/Loveacup/paperclip-hermes-integration/actions/workflows/offline.yml)
 
-- **元信息事件桥**：WebSocket 提示 + 分页 GET 对账，合并事件后唤醒 Paperclip 原生 CEO heartbeat。
-- **精确会话注入**：群聊保留 sender 隔离，conversation/topic 的 `/new` 不导致历史重放。
-- **原生 OMP worker**：逐任务模型覆盖，核验输出的实际 provider/model，处理取消、超时与输出脱敏。
-- **可独立复现**：固定 SDK 与 lockfile；默认测试不依赖作者的 Hermes、OMP、私有 capture 或凭据。
+**English** · [简体中文](README.zh-CN.md)
 
-初次运行建立基线；不重放旧事件。`uncertain` 不自动重试。
-`accepted`、CEO 终态、health ready **都不等于模型已消费或用户已收到**。
+[Quick start](#quick-start) · [Set up with AI](#ai-setup) · [Configuration](#configuration) · [How it works](#architecture) · [Documentation](#documentation)
 
-## Quick Start
+</div>
 
-需要 **Node >=24.11.0、npm、Python 3.9+、macOS/Linux**。只安装公开 npm 依赖，随后离线测试：
+---
+
+Connect **Paperclip** task changes to a precisely bound **Hermes** conversation, while keeping **OMP** workers on their native execution path. A thin integration—not another scheduler, task database, or bot that bypasses your agent.
+
+> [!NOTE]
+> **Start locally. Activate deliberately.** Quick start installs dependencies and runs synthetic offline checks. It does not deploy services, invoke a real model, or send messages. The repository is currently private; cloning requires access.
+
+## ✨ What you get
+
+| Component | Role | Why it matters |
+|:--|:--|:--|
+| **Event bridge** | Reconcile metadata and wake the native CEO heartbeat | Task changes return to the existing management workflow. |
+| **Hermes plugin** | Inject event pointers into an explicitly bound conversation | Keep the conversation destination and group sender isolation intact. |
+| **OMP adapter** | Execute native JSON runs and verify resolved model identity | Use task-level model overrides without replacing the worker runtime. |
+| **Shared configuration** | One nonsecret JSON file, validated against a schema | Change paths and targets without editing product source. |
+
+First startup establishes a baseline, not a historical replay. Uncertain deliveries remain available for review instead of being blindly retried.
+
+<a id="quick-start"></a>
+## 🚀 Quick start
+
+**Requirements:** Node.js **24.11.0+**, npm, Python **3.9+**, and macOS or Linux.
 
 ```sh
 git clone https://github.com/Loveacup/paperclip-hermes-integration.git
@@ -30,65 +48,106 @@ npm test
 npm run config:check -- integration.example.json
 ```
 
-成功判据：安装退出 0；测试全部通过、没有 skip；最后显示 `Configuration valid`。
-这些命令不部署服务、不启动真实 OMP/模型、不发送消息。仓库当前按 PRIVATE 准备，克隆需有访问权限；公开需另行决定。
+**Success looks like:** installation exits successfully, all tests pass with no skips, and the last command reports `Configuration valid`.
 
-## 让 AI 帮你配置
+The default suite uses synthetic fixtures. It needs neither the author's installed Hermes/OMP nor production credentials or private captures. For a real installation, continue with the configuration guide below.
 
-**准备配置、修改路径/目标会话或排查配置失败时，先让 AI 读取 [AI_SETUP.md](docs/AI_SETUP.md)。**
-复制以下提示词到你信任的本地 AI 助手：
+<a id="ai-setup"></a>
+## 🤖 Let your AI configure it
+
+**Preparing an installation, changing paths or destinations, or diagnosing configuration? Read [AI_SETUP.md](docs/AI_SETUP.md) first.** It gives your assistant an ordered runbook with parameter sources, checks, activation boundaries, and completion criteria.
+
+Copy this into a trusted local coding assistant:
 
 ```text
-请帮我配置这个仓库。先完整阅读 docs/AI_SETUP.md、config.schema.json、
-integration.example.json 和相关实现；按指南检查依赖与现状。
-先只做离线准备与校验，为每个实际字段列出来源、类型、合成示例和是否必填；
-缺少真实身份、路径或精确会话路由时停下询问，不能猜默认值。
-密钥只引用环境变量，不向我索取明文、不读取或打印凭据。
-在我明确批准激活前，不覆盖现网插件、不改服务或全局隔离、不重放事件、不发送消息。
-最后报告实际运行的命令、结果和未验证边界；测试通过不代表线上闭环。
+Help me configure this repository. First read docs/AI_SETUP.md,
+config.schema.json, integration.example.json, and the relevant implementation.
+Inspect the environment and existing installation within the scope I authorize.
+Start with local preparation and validation. Derive the field checklist from
+schema; verify real identities, paths, and exact conversation routing rather
+than substituting the synthetic example. Ask when a required fact is missing.
+Reference secrets by environment-variable name; do not ask me to paste them
+or expose their values. Preserve existing configuration and runtime state.
+Before activation, obtain my approval for the specific host changes and tests.
+Report actual commands, results, and unverified boundaries. Offline success
+is not proof of live event consumption or user-visible delivery.
 ```
 
-## 配置入口
+Prefer configuring it yourself? [Deployment guide →](docs/DEPLOYMENT.md)
+
+<a id="configuration"></a>
+## ⚙️ One configuration, explicit ownership
+
+Create a local file, edit it for your environment, then validate and preview:
 
 ```sh
 cp integration.example.json integration.local.json
-# 编辑这个 JSON；真实身份/路由须从目标环境核实，示例均为 synthetic
 npm run config:check -- integration.local.json
-npm run setup -- integration.local.json             # 预览，不改宿主
-npm run setup -- integration.local.json --apply     # 仅生成 .local/deploy.sh，仍不执行
+npm run setup -- integration.local.json
 ```
 
-唯一非秘密配置入口是这份 JSON；类型与必填规则以 [schema](config.schema.json) 为准。
-密钥仅通过 `authEnv` 引用环境变量。相对路径以 JSON 所在目录解析；本地配置和状态不入 Git。
-Hermes 只保存 `config_path` 指针；Paperclip server 通过安装环境中的
-`PAPERCLIP_INTEGRATION_CONFIG` 找到它。**实际部署步骤与权限边界见 [DEPLOYMENT.md](docs/DEPLOYMENT.md)**。
+| Configure | Source of truth |
+|:--|:--|
+| API endpoint, company, and CEO identity | Your verified Paperclip installation |
+| Hermes home, destination, sender, and session key | Exact metadata from the intended Hermes route |
+| State/cursor paths and OMP executable | Your installation-level choices, with the existing owner accounted for |
+| Credentials | An existing protected process environment; JSON stores only the `authEnv` variable name |
 
-## 结构与支持边界
+The [example](integration.example.json) is **synthetic**, with injection disabled. The [schema](config.schema.json) defines the actual fields; relative paths resolve from the JSON file's directory. Local configuration and runtime data stay out of Git.
+
+<details>
+<summary><strong>Preview is not deployment—what does <code>--apply</code> do?</strong></summary>
+
+```sh
+npm run setup -- integration.local.json --apply
+sh -n .local/deploy.sh
+```
+
+This only writes and syntax-checks a reviewable `.local/deploy.sh`. It does **not** execute the deployment. The generated script refuses an existing plugin destination, including directory and dangling symlinks, before host changes.
+
+Hermes stores a `config_path` pointer. Paperclip's installation environment supplies `PAPERCLIP_INTEGRATION_CONFIG`. Actual plugin activation, adapter registration, and service startup are separate steps in [DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+When changing API/company/CEO, review state ownership first. The bridge rejects mismatched or identity-less persisted state rather than reusing old pending work for a new target.
+
+</details>
+
+<a id="architecture"></a>
+## 🧭 How it works
 
 ```text
-Paperclip 状态 → 元信息桥 → 原生 CEO heartbeat
-                     └→ 精确绑定的 Hermes Telegram 会话
-Paperclip 调度 → OMP adapter → 本地 OMP worker
+Paperclip task state ──► Metadata bridge ──► Native CEO heartbeat
+                              │
+                              └──────────► Bound Hermes conversation
+
+Paperclip scheduling ──► OMP adapter ─────► Native OMP worker
 ```
 
-Paperclip 负责权限与调度；Hermes 负责选定会话的交互；本仓库只连接边界，不替代两者。
+**Paperclip owns tasks, permissions, and run lifecycle. Hermes owns the selected conversation. OMP executes worker runs.** This repository connects those boundaries without replacing them.
+
+<details>
+<summary><strong>Repository map</strong></summary>
 
 ```text
-event-bridge/            元信息对账、认证只读入口、服务 ownership、health
-tele-injection-plugin/   owner-scoped 配置、精确路由、持久 cursor
-omp-adapter/            native JSON worker adapter、synthetic fixtures
-scripts/                共享配置校验、离线/宿主测试、部署预览
+event-bridge/           Metadata reconciliation, authenticated reads, ownership, health
+tele-injection-plugin/ Owner-scoped configuration, exact routing, persistent cursors
+omp-adapter/           Native JSON worker adapter and synthetic protocol fixtures
+scripts/               Configuration validation, test tiers, deployment preview
+docs/                  English and Chinese setup, deployment, compatibility guides
+assets/                Original documentation artwork
 ```
 
-| 边界 | 当前支持/限制 |
-|---|---|
-| Paperclip SDK / Hermes adapter | 固定 **2026.1005.0**；内部 `buildPrompt` 导出显式校验，不兼容失败 |
-| Hermes | 使用官方注入/生命周期接口及精确 routing 元信息；须对目标安装运行宿主契约测试，不承诺任意版本 |
-| OMP | 默认只测 synthetic JSON 协议；安装级 command，任务仅能覆盖 model 等受限字段；真实安装探针单独运行 |
-| 平台 | POSIX ownership locks；macOS/Linux 候选，health 的 launchd 检查仅 macOS；离线 CI 状态见对应提交的 [Actions 结果](https://github.com/Loveacup/paperclip-hermes-integration/actions) |
-| 安全 | 工具 permission 不是 OS 沙箱；注入没有原子 session-id fence；只读查询校验 CEO/company 归属 |
+</details>
 
-显式宿主检查（不是 Quick Start 的一部分）：
+## 🧪 Verification without overclaiming
+
+| Layer | What it checks | Entry point |
+|:--|:--|:--|
+| **Offline** | Reconciliation, routing, configuration, process lifecycle, and synthetic protocol behavior | `npm test` |
+| **Host contracts** | Your explicitly configured Hermes/Paperclip installation and OMP probe | Commands below |
+| **Live acceptance** | Authorized installation, actual event consumption, and visible delivery | Operator-run acceptance; not proven by offline tests |
+
+<details>
+<summary><strong>Optional host checks and compatibility</strong></summary>
 
 ```sh
 npm run test:host -- integration.local.json
@@ -96,23 +155,35 @@ npm run test:server -- integration.local.json
 npm run test:installed-omp -- integration.local.json
 ```
 
-缺失宿主就失败，不静默 skip。最后一项会真正启动 OMP，但使用隔离 HOME 与离线 synthetic provider。
-候选尚未验证真实部署、远端权限、模型执行、Telegram 投递或消费闭环；完整边界与回滚见
-[COMPATIBILITY.md](docs/COMPATIBILITY.md)。
+Missing or incompatible hosts fail explicitly instead of silently skipping. The last command really starts OMP, using an isolated HOME and a synthetic offline provider—not a remote model.
 
-## 按需深入
+- **SDK boundary:** Paperclip SDK/Hermes adapter are pinned to `2026.1005.0`; the internal `buildPrompt` export is checked explicitly.
+- **Hermes boundary:** target-installation injection, lifecycle, and routing contracts must be verified. No universal version support is claimed.
+- **OMP boundary:** the executable is installation-level configuration; task inputs cannot replace it. Requested and resolved models are handled distinctly.
+- **Platform boundary:** POSIX ownership locks; the launchd health probe is macOS-only. See actual per-commit [CI results](https://github.com/Loveacup/paperclip-hermes-integration/actions).
 
-| 你要做什么 | 入口 |
-|---|---|
-| 让 AI 收集参数、区分准备与激活 | [AI_SETUP.md](docs/AI_SETUP.md) |
-| 修改配置、安装目标插件、注册 adapter | [DEPLOYMENT.md](docs/DEPLOYMENT.md) |
-| 判断兼容性、验收范围、故障回退 | [COMPATIBILITY.md](docs/COMPATIBILITY.md) |
-| 修改实现并提交可复现回归 | [CONTRIBUTING.md](CONTRIBUTING.md) |
+</details>
 
-## 贡献与许可
+> [!IMPORTANT]
+> **`accepted` is not consumed. Healthy is not delivered.** The standalone package has not been certified through a live deployment and Telegram end-to-end loop. Tool permissions are not an OS sandbox; session injection has no atomic session-id fence. See [compatibility and rollback](docs/COMPATIBILITY.md) before activation.
 
-欢迎小范围、带回归测试的改动：[贡献指南](CONTRIBUTING.md)。提交前运行 Quick Start 验证，
-不要提交本地 JSON、真实 IDs、凭据、cursor、会话或业务日志。更新 SDK/宿主接口时明确说明契约变化。
+<a id="documentation"></a>
+## 📚 Go deeper
 
-本项目代码使用 **[MIT](LICENSE)**；依赖与宿主保留各自许可，来源见
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+| I want to… | English | 简体中文 |
+|:--|:--|:--|
+| Have an AI discover and validate configuration | [AI setup](docs/AI_SETUP.md) | [AI 配置指南](docs/AI_SETUP.zh-CN.md) |
+| Install the plugin, register the adapter, and operate the bridge | [Deployment](docs/DEPLOYMENT.md) | [配置与部署](docs/DEPLOYMENT.zh-CN.md) |
+| Understand support boundaries and roll back safely | [Compatibility](docs/COMPATIBILITY.md) | [兼容性与回滚](docs/COMPATIBILITY.zh-CN.md) |
+
+## 🤝 Contributing
+
+Small, focused changes with reproducible tests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), run the quick-start checks, and keep both language editions aligned when changing instructions.
+
+Keep private configuration, real IDs, credentials, cursors, conversations, and operational output out of commits. Describe contract changes when updating SDK or host interfaces.
+
+## 📄 License & acknowledgements
+
+This project's code is **[MIT licensed](LICENSE)**. Paperclip, Hermes, OMP, and other dependencies retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
+
+Built around [Paperclip](https://github.com/paperclipai/paperclip), [Hermes Agent](https://github.com/NousResearch/hermes-agent), and [oh-my-pi](https://github.com/can1357/oh-my-pi). This is a community integration, not an official product of those projects.

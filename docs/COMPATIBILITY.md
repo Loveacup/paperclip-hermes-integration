@@ -1,5 +1,9 @@
 # Compatibility, safety and rollback
 
+**English** | [简体中文](COMPATIBILITY.zh-CN.md)
+
+[Project home](../README.md) · [AI configuration](AI_SETUP.md) · [Deployment](DEPLOYMENT.md) · [Compatibility and rollback](COMPATIBILITY.md)
+
 ## Compatibility boundary
 
 - Pinned npm SDK and Hermes adapter: **2026.1005.0**, Node >=24.11.0. Lockfile

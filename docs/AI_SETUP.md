@@ -1,143 +1,172 @@
 # AI configuration guide
 
-给为操作者准备配置、变更部署目标或排查失败的 AI。**离线准备 → 校验 → 明确授权后的激活**
-是不同阶段。用户只要求“帮我配置”时，停在离线准备与校验；不要把测试成功解释为上线授权。
+**English** | [简体中文](AI_SETUP.zh-CN.md)
 
-## 1. 建立事实与权限范围
+[Project home](../README.md) · [AI configuration](AI_SETUP.md) · [Deployment](DEPLOYMENT.md) · [Compatibility and rollback](COMPATIBILITY.md)
 
-**输入**：仓库绝对路径、用户目标、允许检查的目标安装范围。
+For AI assistants preparing configuration, changing deployment targets, or diagnosing failures for an operator.
+**Offline preparation → validation → explicitly authorized activation** are separate phases.
+If the user only asks for help configuring the integration, stop after offline preparation and validation;
+passing tests is not authorization to go live.
 
-**动作**：
+## 1. Establish facts and authorization scope
 
-1. 读 `README.md`、`docs/DEPLOYMENT.md`、`docs/COMPATIBILITY.md`、`config.schema.json`、
-   `integration.example.json`、`package.json`。字段类型/必填以 schema 为正本；命令以实际
-   scripts/实现为正本，不臆造 `--help`、安装参数或配置字段。
-2. 读 `scripts/config.mjs`、`scripts/setup.mjs`、`event-bridge/prompt-contract.mjs`，
-   以及要变更的组件。保留三组件结构，不用通用部署框架替换现有设计。
-3. 只读检查 `node --version`、`npm --version`、`python3 --version`、目标包 manifest、
-   明确路径是否存在、当前插件/服务的所有者和冲突。**未获准的宿主路径不要遍历**。
-   本项目不要求读取用户配置全文、`.env`、认证文件、数据库内容、日志或聊天历史。
-4. 网络仅用于公开依赖/官方文档；准备阶段不要调用真实业务 API、运行 agent、启动桥或发消息。
-   宿主命令有副作用的可能时，改查源码/manifest，不以“探测”为名启动运行时。
+**Inputs**: absolute repository path, user objective, and the target installation scope you may inspect.
 
-**完成判据**：列出实际版本、允许读写目录、存在的旧写入者、缺失依赖及当前阶段。
-不明的所有者、权限、服务范围标记“未知”，先询问，不自动关闭旧部署。
+**Actions**:
 
-## 2. 从 schema 生成字段清单，再收集来源
+1. Read `README.md`, `docs/DEPLOYMENT.md`, `docs/COMPATIBILITY.md`, `config.schema.json`,
+   `integration.example.json`, and `package.json`. The schema is authoritative for field types and
+   requirements; actual scripts/implementations are authoritative for commands. Do not invent
+   `--help`, installation arguments, or configuration fields.
+2. Read `scripts/config.mjs`, `scripts/setup.mjs`, `event-bridge/prompt-contract.mjs`,
+   and the components you intend to change. Preserve the three-component structure rather than
+   replacing the existing design with a generic deployment framework.
+3. Perform read-only checks of `node --version`, `npm --version`, `python3 --version`, target package
+   manifests, the existence of explicit paths, and ownership/conflicts of current plugins/services.
+   **Do not traverse unauthorized host paths.** This project does not require reading complete user
+   configurations, `.env`, authentication files, database contents, logs, or chat history.
+4. Use the network only for public dependencies/official documentation. During preparation, do not call
+   real business APIs, run agents, start the bridge, or send messages. If a host command might have side
+   effects, inspect source/manifests instead; do not start a runtime under the guise of probing it.
 
-**输入**：schema 的 `required/properties`、合成示例、用户确认的安装目标。
+**Completion criteria**: list actual versions, directories permitted for reads/writes, existing writers,
+missing dependencies, and the current phase. Mark unclear ownership, permissions, or service scope as
+“unknown” and ask first; do not automatically stop an existing deployment.
 
-**动作**：为 **每个实际配置叶子字段** 输出一行：
-`字段 | schema 类型/约束 | 必填/可选 | 合成示例 | 实际来源 | 已核实/待确认`。
-递归读取 schema，包括 `$ref`；不要把本指南当另一份字段定义。示例取自
-`integration.example.json` 并标明 synthetic，绝不填成“用户的真实身份”。
+## 2. Derive the field inventory from the schema, then collect sources
 
-按来源分支收集，不按猜测补值：
+**Inputs**: the schema's `required/properties`, synthetic examples, and user-confirmed installation targets.
 
-| 字段族 | 可接受的实际来源与停止条件 |
+**Actions**: produce one row for **every actual configuration leaf field**:
+`Field | Schema type/constraints | Required/optional | Synthetic example | Actual source | Verified/pending confirmation`.
+Read the schema recursively, including `$ref`; this guide is not a second field definition.
+Take examples from `integration.example.json`, label them synthetic, and never present them as the user's real identity.
+
+Collect values by source, not by guessing:
+
+| Field family | Acceptable actual sources and stop conditions |
 |---|---|
-| `version` | schema 的 const，不能自行升级协议 |
-| `companyId` / `ceoAgentId` | 用户授权的目标控制台/导出或只读接口；核实同公司 CEO。缺任何一个就停止真实配置 |
-| `apiUrl` / `authEnv` | 操作者确认的 API 基址与其凭据变量**名称**；仅确认变量是否已由服务管理器供给，不请求、读取或打印其值 |
-| `bridge.*` | 操作者选定的私有状态位置、确切 adapter 包 manifest、现有服务 label；状态路径不能与未停旧 owner 冲突 |
-| `plugin.ownerHome` / `routingHome` | 从目标 profile/宿主接口核实管理归属与路由元信息的实际存储位置；两者可能不同，不从用户名推导 |
-| `plugin.binding.*` | 在明确授权下只读宿主精确路由元信息，见下方路由分支；任何不一致先停止 |
-| `plugin.cursorDir` | 操作者确认的私有持久路径；新目录意味着新基线，不能用它绕过已有 writer |
-| `plugin.instructionsPath` / `readCommand` | 经审阅的 CEO 约束与仓库只读入口；保留 `{repo}`/`{config}` 展开机制，命令 argv 中没有凭据 |
-| `plugin.enabled` / `accept_nonatomic_risk` / `interval` | 操作者明确选择；准备阶段 enabled=false。session 模式风险必须由用户接受，不为通过校验擅自置 true |
-| `omp.command` | 已安装 OMP 可执行文件的绝对路径；是安装权限，不来自任务文本 |
-| `host.*` | 仅显式宿主契约检查时使用的准确安装目录；未提供时保留为未配置，不能声称宿主通过 |
+| `version` | The schema's const; do not independently upgrade the protocol |
+| `companyId` / `ceoAgentId` | A user-authorized target console/export or read-only API; verify the CEO belongs to the same company. Stop real configuration if either is missing |
+| `apiUrl` / `authEnv` | The operator-confirmed API base URL and credential variable **name**; only confirm whether the service manager supplies the variable, without requesting, reading, or printing its value |
+| `bridge.*` | The operator-selected private state location, exact adapter package manifest, and existing service label; the state path must not conflict with an old owner that has not stopped |
+| `plugin.ownerHome` / `routingHome` | Verify configuration ownership and the actual routing-metadata location through the target profile/host interface; they may differ and must not be inferred from a username |
+| `plugin.binding.*` | Read exact host routing metadata only with explicit authorization; see the routing branch below and stop on any inconsistency |
+| `plugin.cursorDir` | An operator-confirmed private persistent path; a new directory means a new baseline and must not bypass an existing writer |
+| `plugin.instructionsPath` / `readCommand` | Reviewed CEO constraints and the repository's read-only entry point; preserve `{repo}`/`{config}` expansion and keep credentials out of command argv |
+| `plugin.enabled` / `accept_nonatomic_risk` / `interval` | Explicit operator choices; enabled=false during preparation. The user must accept session-mode risk; do not set it to true merely to pass validation |
+| `omp.command` | The absolute path to the installed OMP executable; this is an installation-level authority, not a value derived from task text |
+| `host.*` | Exact installation directories used only for explicit host contract checks; leave unconfigured if not provided and do not claim host checks passed |
 
-**路由分支**：只需要 `session_key/session_id/platform/transport_profile/origin` 这些元信息，
-不读取会话正文、标题或凭据。`read_route` 的只读 SQL 与 scope 规则是实际实现。
-必须核实 session_key、profile、chat_type、chat_id、user_id、thread_id 相互一致；
-群必须是明确 sender 的普通 conversation，空 thread；`/new` 可更新 session_id，保持同一
-conversation 身份。**session_key 只能从宿主核实，不能根据字符串格式拼一个然后称为真实**。
-拿不到这条路由时，请用户提供不含正文/密钥的元信息，或停止在 synthetic 预览。
+**Routing branch**: only `session_key/session_id/platform/transport_profile/origin` metadata is needed;
+do not read session bodies, titles, or credentials. The read-only SQL and scope rules in `read_route`
+are the implementation authority. Verify consistency among session_key, profile, chat_type, chat_id,
+user_id, and thread_id. A group must be an ordinary conversation with an explicit sender and an empty
+thread. `/new` may update session_id while preserving the same conversation identity.
+**Verify session_key against the host; never construct one from its string format and call it real.**
+If that route cannot be obtained, ask the user for metadata without bodies/secrets, or stop at a synthetic preview.
 
-**路径分支**：配置中的相对路径相对于 JSON 文件目录，而不是 shell cwd；不展开 `~`。
-`{repo}` 和 `{config}` 仅用于 readCommand 模板，运行时 shell-quote。将 JSON 放到别处时
-重新确认所有相对路径。插件要保留整个仓库依赖关系，部署 symlink 不是单独复制一个 `.py`。
+**Path branch**: relative configuration paths resolve against the JSON file's directory, not the shell cwd;
+`~` is not expanded. `{repo}` and `{config}` apply only to the readCommand template and are shell-quoted
+at runtime. Reconfirm all relative paths when moving the JSON file. Preserve the plugin's dependencies
+on the whole repository: deployment uses a symlink, not a standalone copy of a `.py` file.
 
-**完成判据**：所有要激活的字段都有核实来源；没有把 synthetic 值当真实值，所有缺项已单独
-列出并询问。在缺项未解决时允许继续离线示例演练，但不得产出“可上线”结论。
+**Completion criteria**: every field to be activated has a verified source; no synthetic value is treated
+as real, and every missing item has been listed separately and raised with the user. Offline example
+exercises may continue while items remain unresolved, but the result must not be declared ready to go live.
 
-## 3. 只在仓库内准备与校验
+## 3. Prepare and validate only within the repository
 
-**输入**：授权可写的仓库、已锁定依赖、配置草稿（或仅 synthetic 示例）。
+**Inputs**: a repository authorized for writes, locked dependencies, and a configuration draft (or only a synthetic example).
 
-**动作**：先保留已有本地配置，不覆盖；从示例建立 `integration.local.json` 时保持注入关闭。
-凭据只存于操作者已有安全环境，不创建 `.env`、不把 secret 写入 JSON、shell argv 或提示词。
-运行：
+**Actions**: preserve existing local configuration without overwriting it; keep injection disabled when
+creating `integration.local.json` from the example. Credentials stay in the operator's existing secure
+environment. Do not create `.env` or put secrets in JSON, shell argv, or prompts. Run:
 
 ```sh
 npm ci
 npm test
 npm run config:check -- integration.example.json
-# 仅在已建立本地草稿时：
+# Only after a local draft has been created:
 npm run config:check -- integration.local.json
 npm run setup -- integration.local.json
 ```
 
-最后一项是预览。`npm run setup -- integration.local.json --apply` 只生成
-`.local/deploy.sh`，仍不执行宿主操作；单独得到用户允许才生成。不要把这个 apply 描述为上线。
-不要执行 `--once`/`--read` 来“离线校验”：它们会真实访问 API；`--run` 会投递 heartbeat。
-`--check` 虽然不访问网络，但检查凭据存在和安装 prompt 契约，不是无凭据快速开始的必要项。
+The last command is a preview. `npm run setup -- integration.local.json --apply` only generates
+`.local/deploy.sh`; it still performs no host operations. Obtain separate user permission before generating
+it. Do not describe this apply operation as going live. Do not use `--once`/`--read` for “offline validation”:
+they access the real API; `--run` delivers heartbeats. Although `--check` does not access the network,
+it checks credential presence and the installed prompt contract; it is not required for a credential-free quick start.
 
-**完成判据**：记录每条命令的真实退出码、测试通过/失败/skip 数、配置校验输出；预览未改变
-宿主。若尚缺身份/路由，则结果标为“synthetic 示例通过；真实配置待补”，不是“配置完成”。
+**Completion criteria**: record each command's actual exit code, test pass/fail/skip counts, and configuration
+validation output; the preview must leave the host unchanged. If identity/routing is still missing, label
+the result “synthetic example passed; real configuration incomplete,” not “configuration complete.”
 
-## 4. 宿主检查与激活分别授权
+## 4. Authorize host checks and activation separately
 
-**输入**：用户对具体目标、具体改动、停旧 owner 与新基线策略的明确许可。
+**Inputs**: explicit user permission for specific targets and changes, stopping the old owner, and the new-baseline policy.
 
-**动作**：
+**Actions**:
 
-- 需要检查宿主时按 README 的 `test:host`、`test:server`、`test:installed-omp` 执行，
-  配置路径作为参数。宿主检查不等于激活；最后一项实际启动 OMP，必须事先说明。
-- 部署按 `DEPLOYMENT.md` 的人工流程。先审阅生成脚本，再确认 symlink 目标为空；已有插件
-  交用户决定，不能强制覆盖。官方 `hermes config set` 只设置选定 owner 的 config_path；
-  `hermes plugins enable` 只启用目标插件。不要修改全局 plugin isolation、其他 profile 或服务。
-- Paperclip 外部 adapter 安装要 instance-admin 权限；桥 CEO 身份不能替代。把配置路径传给
-  Paperclip 的安装环境，不允许任务覆盖执行 command。bridge 通过 argv 收到配置；
-  exec gate 只保留配置所引用的凭据变量。
-- 换 `apiUrl` / `companyId` / `ceoAgentId` 前先确认状态归属。桥用规范化 API 基址与公司/CEO
-  元组绑定状态；身份不符或旧无身份状态必须停止，不自动修改、清空、补 identity 或重放。
-  停旧 owner 并保留旧配置与完整状态后，由操作者批准新的、真正不存在的 statePath 建立基线。
-  不能把旧 pending/tracked/inflight 转给新目标；uncertain 仍需人工核对。同身份重启保持 statePath。
-  规范化与请求一致（URL 标准化、尾斜线和可选末尾 /api），部署路径前缀属于身份。
-  详见 DEPLOYMENT.md 的“换目标与旧状态归属”。
-- 用户最后批准激活时才 enabled=true、加载目标 messaging gateway、启动唯一 bridge owner。
-  保持 cursor/state，不自动回放 uncertain，不把旧历史重新作为新工作。
+- When host checks are needed, follow the README's `test:host`, `test:server`, and `test:installed-omp`
+  commands with the configuration path as an argument. Host checks are not activation; the last command
+  actually starts OMP, which must be disclosed in advance.
+- Follow the manual deployment procedure in `DEPLOYMENT.md`. Review the generated script first, then
+  confirm the symlink destination is unoccupied. Let the user decide how to handle an existing plugin;
+  never force an overwrite. The official `hermes config set` only sets config_path for the selected owner;
+  `hermes plugins enable` only enables the target plugin. Do not change global plugin isolation, other
+  profiles, or other services.
+- Installing an external Paperclip adapter requires instance-admin privileges; the bridge's CEO identity
+  is not a substitute. Pass the configuration path to Paperclip's installation environment; tasks must not
+  override the execution command. The bridge receives configuration through argv; the exec gate retains
+  only the credential variable referenced by that configuration.
+- Confirm state ownership before changing `apiUrl` / `companyId` / `ceoAgentId`. The bridge binds state to
+  a tuple of normalized API base URL, company, and CEO. Stop on an identity mismatch or legacy state
+  without identity; do not automatically modify, clear, add identity to, or replay it. After stopping the
+  old owner and retaining its configuration and complete state, obtain operator approval for a new,
+  genuinely nonexistent statePath to establish a baseline. Never transfer old pending/tracked/inflight
+  entries to the new target; uncertain deliveries still require manual review. Keep statePath when
+  restarting with the same identity. Normalization matches requests (URL normalization, trailing slashes,
+  and an optional final /api); the deployment path prefix is part of the identity. See “Changing targets
+  and ownership of existing state” in DEPLOYMENT.md.
+- Only after the user's final activation approval, set enabled=true, load the target messaging gateway,
+  and start the sole bridge owner. Preserve cursor/state, do not automatically replay uncertain deliveries,
+  and do not treat old history as new work.
 
-**完成判据**：分别记录“宿主契约检查结果”“实际应用了哪些改动”“哪些没有应用”。
-从 exact target 只读回查配置指针/插件归属/服务 PID 与 state/cursor 的一致性。
-未被授权的步骤保持未执行，不用 synthetic 输出替代真实验证。
+**Completion criteria**: separately record “host contract check results,” “changes actually applied,” and
+“changes not applied.” Read back the exact target to check consistency of the configuration pointer,
+plugin ownership, service PID, and state/cursor. Leave unauthorized steps unexecuted; synthetic output
+must never stand in for real verification.
 
-## 5. 分层验收与故障退回
+## 5. Layered acceptance and failure recovery
 
-**输入**：刚才的真实输出；仅在用户授权真实可见性测试后才使用业务测试事件。
+**Inputs**: the actual outputs just collected; use business test events only after the user authorizes a real visibility test.
 
-**动作/完成判据**：
+**Actions/completion criteria**:
 
-1. **Offline**：npm ci + npm test + config:check 退出 0，无 skip；只证明可复现契约。
-2. **Host**：三个显式命令各自报告通过；没执行的标“未验证”。不把其中两项当全测。
-3. **Runtime**：macOS health 校验目标 PID/launchd label、对账新鲜度、promptReady 和确切绑定 cursor。
-   Linux 使用现有服务管理器的只读检查。health ready 只证明健康，不证明收到消息。
-4. **Visibility**：另获授权后才产生一个明确 synthetic 新事件；逐层核对原生 run、注入 acceptance、
-   对应用户会话可见性与消费证据。没有每层证据就不宣称端到端完成。
+1. **Offline**: npm ci + npm test + config:check exit 0 with no skips; this proves only reproducible contracts.
+2. **Host**: each of the three explicit commands reports success. Mark any unexecuted command “unverified”;
+   two checks are not the full set.
+3. **Runtime**: macOS health verifies the target PID/launchd label, reconciliation freshness, promptReady,
+   and exact bound cursor. On Linux, use read-only checks from the existing service manager.
+   A ready health result proves health, not message receipt.
+4. **Visibility**: only after separate authorization, create one explicitly synthetic new event. Check
+   the native run, injection acceptance, visibility in the corresponding user session, and consumption
+   evidence layer by layer. Do not claim end-to-end completion without evidence at every layer.
 
-| 失败 | 下一步 |
+| Failure | Next step |
 |---|---|
-| 配置 schema / binding 不通过 | 输出字段路径和规则，不输出值；核对来源，不修改身份凑格式 |
-| adapter 版本/内部导出不兼容 | 停止启动，使用已固定版本或另做兼容性改动；不绕过检查 |
-| promptReady=false | 审核 CEO 模板是否包含 wakeReason；需保留管理约束，不能清空 prompt |
-| 缺 auth 环境 | 请操作者用其秘密管理机制供给，仅验证存在；不索取明文 |
-| owner_busy / legacy_owner_alive | 找到原所有者由用户处理；不删除活锁/杀进程 |
-| paused_route / ownerHome 不匹配 | 再核实 exact routing 元信息及 owner；不改群 sender 来“修复” |
-| uncertain / skipped_needs_review | 人工核对原生 run，保持状态，绝不盲重试 |
-| 宿主路径或依赖缺失 | 明确失败，退回 offline 成果；不是 skip 后算通过 |
-| 线上行为不符 | 使用 COMPATIBILITY.md 回滚：停目标 owner、禁用插件/adapter、保留 cursor/state |
+| Configuration schema / binding fails | Report field paths and rules, not values; verify sources rather than changing identities to fit a format |
+| Incompatible adapter version/internal export | Stop startup; use the pinned version or make a separate compatibility change, without bypassing checks |
+| promptReady=false | Review whether the CEO template contains wakeReason; preserve management constraints rather than clearing the prompt |
+| Missing auth environment | Ask the operator to supply it through their secret-management mechanism; verify presence only and do not request plaintext |
+| owner_busy / legacy_owner_alive | Identify the existing owner for the user to handle; do not delete live locks or kill processes |
+| paused_route / ownerHome mismatch | Reverify exact routing metadata and owner; do not change the group sender as a “fix” |
+| uncertain / skipped_needs_review | Manually inspect native runs and preserve state; never retry blindly |
+| Missing host paths or dependencies | Report failure explicitly and fall back to offline deliverables; skipping is not passing |
+| Unexpected live behavior | Follow COMPATIBILITY.md rollback: stop the target owner, disable the plugin/adapter, and preserve cursor/state |
 
-最终交付一段简短报告：改动文件、实际成功命令、真实失败/未执行项、下一步需要的用户决定。
-所有运行证据留在私有运维位置，公开仓库仅保留合成例子。
+Finish with a brief report: changed files, commands that actually succeeded, real failures/unexecuted
+items, and the next decisions required from the user. Keep all runtime evidence in a private operations
+location; the public repository retains synthetic examples only.

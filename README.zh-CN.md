@@ -52,6 +52,20 @@ npm run config:check -- integration.example.json
 
 默认测试使用合成 fixture，不依赖作者本机的 Hermes/OMP、真实凭据或私密捕获记录。准备真实安装时，再进入下面的配置流程。
 
+## 分段 QA：分离机器执行与收口
+
+当测试很快完成、模型驱动的报告收口却可能触及截止时间时，使用 **准备（OMP）→ 机器执行（专用 process、无模型）→ 收口（OMP＋固定 helper）**。冻结源、持久的单次执行准入和哈希绑定 receipt，让收口只验证、报告既有结果，不重跑 QA。证据不完整或原生写效果未知时停止并对账，不重放。
+
+```sh
+npm run test:segmented-qa
+# 可选：包含三项真实 installed SDK 契约；宿主缺失明确失败。
+npm run test:segmented-qa -- --paperclip-packages /absolute/node_modules/@paperclipai
+```
+
+内置参考产品实际运行 23 项 black-box 检查。组件默认测试可独立复现，只用本地 fixture；宿主测试将真实 process factory 接到**合成 localhost 端点**，不代表真实 Paperclip 授权通过。产品人工验收仍单独保留。
+
+[组件命令与启用边界（英文）→](segmented-qa/README.md)。图构造器不创建任务、执行者或第二调度器。启用前需要准入 OMP／process 执行者及可达且允许的 API origin；原生发布器仅接受 HTTPS 或 loopback HTTP，不接受远端明文 HTTP。安装脚本本身不启用原生任务链，也不证明依赖自动唤醒已通过。
+
 <a id="ai-setup"></a>
 ## 🤖 让 AI 帮你配置
 

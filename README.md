@@ -52,6 +52,20 @@ npm run config:check -- integration.example.json
 
 The default suite uses synthetic fixtures. It needs neither the author's installed Hermes/OMP nor production credentials or private captures. For a real installation, continue with the configuration guide below.
 
+## Segmented QA: keep execution separate from closeout
+
+Use **prepare (OMP) → machine (dedicated process actor, no model) → closeout (OMP + fixed helper)** when the tests finish quickly but model-driven reporting may hit a run deadline. Frozen source, durable single-execution admission and hash-bound receipts let closeout verify and report existing results without rerunning QA. Incomplete evidence and uncertain native writes stop for reconciliation; they are not replayed.
+
+```sh
+npm run test:segmented-qa
+# Optional: include the three real installed-SDK contracts; missing hosts fail.
+npm run test:segmented-qa -- --paperclip-packages /absolute/node_modules/@paperclipai
+```
+
+The bundled reference product runs 23 black-box checks. Default component tests are portable and use only local fixtures; host tests combine the real process factory with a **synthetic localhost endpoint**, not live Paperclip authorization. Manual product acceptance remains separate.
+
+[Component commands and activation boundaries →](segmented-qa/README.md). The graph builder does not create tasks, agents or a second scheduler. Activation needs admitted OMP/process actors and a reachable permitted API origin; the native publisher accepts HTTPS or loopback HTTP, not remote plaintext HTTP. Installing these scripts does not itself activate a native task chain or certify automatic wakeup.
+
 <a id="ai-setup"></a>
 ## 🤖 Let your AI configure it
 

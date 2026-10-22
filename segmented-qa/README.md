@@ -103,6 +103,38 @@ no OMP environment merge is assumed. Prepare does not automatically execute this
 helper: its owner must receive explicit freeze commands and native-completion
 instructions separately. This option does not authorize another task's completion.
 
+## Native activation and verified scope
+
+Keep Paperclip as the only task/run owner. Create the three issues as unassigned
+backlog work first, retain the server-issued IDs, and configure blocked successors
+before admitting prepare. Use genuine native CEO context for management when the
+server requires it: a rejected non-native request is not permission to invent a run
+header, switch to Board, or blindly resend an uncertain write.
+
+Prepare must freeze the selected source and verify its contract before completing
+its own issue. `build_graph` constructs bodies, but deliberately does not supply a
+source-specific prepare command or create/admit actors for you. Machine executes
+once. Let Paperclip resolve the blocker edges; a manual wake does not certify
+native dependency continuation.
+
+For a formal report stored in Paperclip, run `closeout` **without** `--native-finish`
+first, then have the assigned native owner publish the generated `REPORT.md` using
+the supported issue-document API and verify the exact stored body. Preserve a
+write-ahead intent and do not retry unknown publication effects. Only after that
+readback should the owner call the same `closeout --native-finish`, which reuses the
+report and completes its own issue. The component's completion helper writes a
+status/comment; **it does not upload a document automatically**.
+
+A controlled operator-authorized live sample exercised native CEO assignment,
+OMP prepare, a dedicated model-free process run and OMP closeout. The 23 product
+checks passed without errors/skips; both successors were triggered by
+`issue_blockers_resolved`, and the native report document was read back byte-for-byte.
+Task/run identity, exact receipt comments and final cleared execution holds were
+checked separately. This is one live sample, not certification of arbitrary crash
+recovery, a full Telegram event loop, human product acceptance or every deployment.
+The earlier report-after-write interruption/recovery proof is a separate local
+fault probe, not a claim that a live provider crash was injected.
+
 ## Fixture and portability scope
 
 `fixtures/md-link-audit/` contains exactly five allowlisted original source files:

@@ -62,7 +62,7 @@ npm run test:segmented-qa
 npm run test:segmented-qa -- --paperclip-packages /absolute/node_modules/@paperclipai
 ```
 
-内置参考产品实际运行 23 项 black-box 检查。组件默认测试可独立复现，只用本地 fixture；宿主测试将真实 process factory 接到**合成 localhost 端点**，不代表真实 Paperclip 授权通过。产品人工验收仍单独保留。
+内置参考产品实际运行 23 项 black-box 检查。组件默认测试可独立复现，只用本地 fixture；宿主测试将真实 process factory 接到**合成 localhost 端点**，不代表真实 Paperclip 授权通过。另一次经操作者批准的真实样本已跑通原生派工、阻塞解除后的自动接续及正式报告文档的精确读回；这不是任意故障恢复或 Telegram 全链路认证，产品人工验收仍单独保留。
 
 [组件命令与启用边界（英文）→](segmented-qa/README.md)。图构造器不创建任务、执行者或第二调度器。启用前需要准入 OMP／process 执行者及可达且允许的 API origin；原生发布器默认仅接受 HTTPS 或 loopback HTTP。远端明文 HTTP 必须经管理员明确批准，并用 `SEGMENTED_QA_ALLOWED_HTTP_ORIGIN` 指定单个精确 origin；不接受通配符或宽泛开关。安装脚本本身不启用原生任务链，也不证明依赖自动唤醒已通过。
 

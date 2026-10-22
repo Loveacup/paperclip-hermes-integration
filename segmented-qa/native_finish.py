@@ -11,14 +11,39 @@ from urllib.request import Request, HTTPRedirectHandler, ProxyHandler, build_ope
 UUID = re.compile(r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\Z')
 
 
-def _base_url(value):
+HTTP_ORIGIN_ENV = 'SEGMENTED_QA_ALLOWED_HTTP_ORIGIN'
+
+
+def _allowed_http_origin(value):
+    """Validate, never normalize, the administrator's single plaintext origin."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not re.fullmatch(
+            r'http://(?:\[[0-9a-fA-F:]+\]|[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?)(?::[0-9]+)?', value):
+        raise ValueError('invalid allowed HTTP origin')
+    u = urlsplit(value)
+    # Reject empty DNS labels and invalid label boundaries; urlsplit validates IPv6.
+    if not u.hostname or (':' not in u.hostname and any(
+            not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?', label)
+            for label in u.hostname.split('.'))):
+        raise ValueError('invalid allowed HTTP origin')
+    if u.port is not None and not 1 <= u.port <= 65535:
+        raise ValueError('invalid allowed HTTP origin')
+    return value
+
+
+def _base_url(value, allowed_http_origin=None):
+    allowed_http_origin = _allowed_http_origin(allowed_http_origin)
     if not isinstance(value, str) or any(c.isspace() for c in value):
         raise ValueError('invalid base')
     u = urlsplit(value)
-    if (u.scheme not in ('http', 'https') or not u.hostname or u.username or u.password
-            or u.query or u.fragment or u.path not in ('', '/', '/api', '/api/') or '\\' in value):
+    if (u.scheme not in ('http', 'https') or not u.hostname or '@' in u.netloc
+            or '?' in value or '#' in value or u.path not in ('', '/', '/api', '/api/') or '\\' in value):
         raise ValueError('invalid base')
-    if u.scheme == 'http' and u.hostname not in ('localhost', '127.0.0.1', '::1'):
+    origin = value[:-len(u.path)] if u.path else value
+    if allowed_http_origin is not None and origin != allowed_http_origin:
+        raise ValueError('allowed HTTP origin mismatch')
+    if u.scheme == 'http' and u.hostname not in ('localhost', '127.0.0.1', '::1') and allowed_http_origin is None:
         raise ValueError('insecure remote base')
     u.port  # validate malformed port before use
     return u._replace(path='', query='', fragment='').geturl()
@@ -29,8 +54,8 @@ class _NoRedirect(HTTPRedirectHandler):
         raise HTTPError(req.full_url, code, 'redirect refused', {}, None)
 
 
-def _transport(base):
-    base = _base_url(base)
+def _transport(base, allowed_http_origin=None):
+    base = _base_url(base, allowed_http_origin)
     opener = build_opener(ProxyHandler({}), _NoRedirect())
     def request(method, path, body, headers):
         if not re.fullmatch(r'/api/(?:agents/me|heartbeat-runs/[0-9a-fA-F-]+|issues/[0-9a-fA-F-]+(?:/comments)?)', path):
@@ -60,7 +85,8 @@ def finish_current_issue(*, summary, receipt_sha256, intent_dir, env=None, trans
         env = os.environ if env is None else env
         agent, company, run = (env['PAPERCLIP_'+k] for k in ('AGENT_ID', 'COMPANY_ID', 'RUN_ID'))
         token = env['PAPERCLIP_API_KEY']
-        base = _base_url(env['PAPERCLIP_API_URL'])
+        allowed_http_origin = _allowed_http_origin(env.get(HTTP_ORIGIN_ENV))
+        base = _base_url(env['PAPERCLIP_API_URL'], allowed_http_origin)
         if not all(isinstance(v, str) and UUID.fullmatch(v) for v in (agent, company, run)):
             return result('refused', 'invalid_runtime_ids')
         if not isinstance(token, str) or not token or any(c.isspace() for c in token):
@@ -69,7 +95,7 @@ def finish_current_issue(*, summary, receipt_sha256, intent_dir, env=None, trans
                 or token in summary or not isinstance(receipt_sha256, str)
                 or not re.fullmatch('[0-9a-f]{64}', receipt_sha256)):
             return result('refused', 'invalid_summary_or_digest')
-        transport = transport if transport is not None else _transport(base)
+        transport = transport if transport is not None else _transport(base, allowed_http_origin)
         headers = {'Authorization': 'Bearer '+token, 'X-Paperclip-Run-Id': run}
         me = transport('GET', '/api/agents/me', None, headers)
         runtime = transport('GET', '/api/heartbeat-runs/'+run, None, headers)

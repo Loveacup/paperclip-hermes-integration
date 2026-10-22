@@ -64,7 +64,7 @@ npm run test:segmented-qa -- --paperclip-packages /absolute/node_modules/@paperc
 
 The bundled reference product runs 23 black-box checks. Default component tests are portable and use only local fixtures; host tests combine the real process factory with a **synthetic localhost endpoint**, not live Paperclip authorization. Manual product acceptance remains separate.
 
-[Component commands and activation boundaries →](segmented-qa/README.md). The graph builder does not create tasks, agents or a second scheduler. Activation needs admitted OMP/process actors and a reachable permitted API origin; the native publisher accepts HTTPS or loopback HTTP, not remote plaintext HTTP. Installing these scripts does not itself activate a native task chain or certify automatic wakeup.
+[Component commands and activation boundaries →](segmented-qa/README.md). The graph builder does not create tasks, agents or a second scheduler. Activation needs admitted OMP/process actors and a reachable permitted API origin; the native publisher accepts HTTPS or loopback HTTP by default. Remote plaintext HTTP requires explicit administrator approval and a single exact origin via `SEGMENTED_QA_ALLOWED_HTTP_ORIGIN`; no wildcard or broad enable flag is accepted. Installing these scripts does not itself activate a native task chain or certify automatic wakeup.
 
 <a id="ai-setup"></a>
 ## 🤖 Let your AI configure it

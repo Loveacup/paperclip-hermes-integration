@@ -14,8 +14,34 @@ ACTORS = {p: {'id': f'20000000-0000-4000-8000-{n:012d}', 'adapterType': 'process
 PROJECT = '30000000-0000-4000-8000-000000000001'
 
 class GraphTests(unittest.TestCase):
-    def graph(self, actors=None):
-        return importlib.import_module('native_graph').build_graph(project_id=PROJECT, actors=ACTORS if actors is None else actors, issue_ids=ISSUES, contract_path=str(ROOT/'synthetic/contract.json'), work_root=str(ROOT/'synthetic'))
+    def graph(self, actors=None, **kwargs):
+        return importlib.import_module('native_graph').build_graph(project_id=PROJECT, actors=ACTORS if actors is None else actors, issue_ids=ISSUES, contract_path=str(ROOT/'synthetic/contract.json'), work_root=str(ROOT/'synthetic'), **kwargs)
+
+    def test_http_opt_in_only_binds_machine_and_closeout_helper(self):
+        import copy
+        import shlex
+        key = 'SEGMENTED_QA_ALLOWED_HTTP_ORIGIN'
+        origin = 'http://example.invalid:8123'
+        actors = copy.deepcopy(ACTORS)
+        default = self.graph()
+        self.assertNotIn(key, json.dumps(default))
+        self.assertEqual(default, self.graph(allowed_http_origin=None))
+        graph = self.graph(allowed_http_origin=origin)
+        expected = copy.deepcopy(default)
+        expected['phases'][1]['body']['assigneeAdapterOverrides']['adapterConfig']['env'] = {key: origin}
+        description = expected['phases'][2]['body']['description']
+        expected['phases'][2]['body']['description'] = description.replace('```sh\n', '```sh\nenv '+key+'='+origin+' ', 1)
+        self.assertEqual(graph, expected)
+        self.assertEqual(ACTORS, actors)
+        command = graph['phases'][2]['body']['description'].split('```sh\n')[1].split('\n```')[0]
+        self.assertEqual(shlex.split(command)[:2], ['env', key+'='+origin])
+        for value in ('', True, 'true', '*', 'http://*.invalid', origin+'/', origin+'/api',
+                      origin+'?', origin+'#', origin+'\\x', origin+'\n', ' '+origin,
+                      'http://u@example.invalid', 'https://example.invalid', 'http://example.invalid:'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                self.graph(allowed_http_origin=value)
+        with self.assertRaises(ValueError):
+            self.graph(actors={}, allowed_http_origin='true')
     def test_graph_is_three_native_bodies_not_a_scheduler(self):
         graph = self.graph()
         self.assertEqual(graph['status'], 'ready')
@@ -44,9 +70,10 @@ import fs from 'node:fs';
 const bodies=JSON.parse(fs.readFileSync(0,'utf8'));
 for(const b of bodies){const parsed=createIssueSchema.parse(b); for(const k of Object.keys(b)){if(JSON.stringify(parsed[k])!==JSON.stringify(b[k])) throw Error('stripped or changed '+k);}}
 console.log('validated '+bodies.length+' createIssue bodies');'''
-        run = subprocess.run(['node','--input-type=module','-e',script], input=json.dumps([p['body'] for p in self.graph()['phases']]), text=True, capture_output=True, cwd=paperclip_packages(), timeout=30)
+        bodies = [p['body'] for graph in (self.graph(), self.graph(allowed_http_origin='http://example.invalid:8123')) for p in graph['phases']]
+        run = subprocess.run(['node','--input-type=module','-e',script], input=json.dumps(bodies), text=True, capture_output=True, cwd=paperclip_packages(), timeout=30)
         self.assertEqual(run.returncode,0,run.stderr)
-        self.assertIn('validated 3',run.stdout)
+        self.assertIn('validated 6',run.stdout)
 
     def test_missing_or_wrong_role_is_admission_gap_not_adapter_override(self):
         import copy

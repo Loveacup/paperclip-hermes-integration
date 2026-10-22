@@ -1,9 +1,9 @@
 # Segmented QA (portable reference component)
 
-Frozen local QA, separated from optional Paperclip native publication. The three
-production modules and `reproduce.py` are byte-for-byte copies of the reviewed
-candidate; only tests, this runner, documentation and bundled fixtures are portable
-packaging additions. No SDK is vendored.
+Frozen local QA, separated from optional Paperclip native publication. The core
+`staged_qa.py` and `reproduce.py` remain unchanged from the reviewed candidate.
+Native helpers add a narrowly scoped, explicit HTTP-origin opt-in. Tests, this
+runner, documentation and bundled fixtures provide portable packaging. No SDK is vendored.
 
 ## Test tiers
 
@@ -14,10 +14,10 @@ python3 -B run_tests.py
 python3 -B run_tests.py --paperclip-packages /absolute/node_modules/@paperclipai
 ```
 
-* **Offline (default):** 29 stdlib-only tests; no Node.js, installed Paperclip,
+* **Offline (default):** 33 stdlib-only tests; no Node.js, installed Paperclip,
   author-specific paths, production credentials or Internet required. This includes
   non-SDK graph/composition cases and synthetic loopback HTTP transport checks.
-* **Host (explicit):** all 32 tests, including exactly three additional cases:
+* **Host (explicit):** all 36 tests, including exactly three additional cases:
   real shared `createIssueSchema` validation, real native process execution with
   harmless argv, and the complete machine graph through the real process factory
   to a synthetic loopback native endpoint. Requires Node.js on `PATH` and installed
@@ -75,6 +75,33 @@ checks precede a single status/comment write and exact readback. An unknown writ
 outcome is **not retried**: retain its intent and reconcile manually. Local passing
 tests do not guarantee live authentication, authorization, OMP consumption, installed
 SDK version compatibility, remote recovery or production readiness.
+
+### Explicit plaintext HTTP approval
+
+HTTPS and loopback HTTP remain the defaults; remote HTTP is refused unless an
+administrator explicitly approves one verified origin. Plaintext HTTP exposes
+runtime credentials and task contents to interception and modification. Prefer
+HTTPS; approval is not a claim that a private network is secure.
+
+`finish_current_issue` reads `SEGMENTED_QA_ALLOWED_HTTP_ORIGIN` only from its supplied
+`env` (or the process environment when `env` is omitted). The value must be a pure
+`http://host[:port]` origin, for example `http://example.invalid:8123`: no trailing
+slash, path, query, fragment, userinfo, whitespace, backslash, wildcard or boolean.
+It must match the API base origin exactly, including host spelling and explicit
+port; the base alone may retain its supported `/`, `/api` or `/api/` suffix.
+An invalid or mismatched opt-in fails closed even with an injected transport.
+Redirects remain refused, proxies disabled, and durable intents prevent replay.
+Neither the origin nor runtime credentials are added to results or intent records.
+
+Pass `allowed_http_origin='http://example.invalid:8123'` explicitly to
+`native_graph.build_graph(...)` only after approval. With the default `None`, graph
+output is unchanged. An explicit value is validated before graph construction;
+only this non-secret key is added to the machine task's `adapterConfig.env`.
+The closeout task's helper command gets an `env SEGMENTED_QA_ALLOWED_HTTP_ORIGIN=...`
+prefix, scoped to that invocation. Existing OMP agents/roles/configs are untouched;
+no OMP environment merge is assumed. Prepare does not automatically execute this
+helper: its owner must receive explicit freeze commands and native-completion
+instructions separately. This option does not authorize another task's completion.
 
 ## Fixture and portability scope
 

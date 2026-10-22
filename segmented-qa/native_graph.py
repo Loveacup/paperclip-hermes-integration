@@ -4,8 +4,9 @@ import shlex
 import sys
 
 
-def build_graph(*, project_id, actors, issue_ids, contract_path, work_root):
-    from native_finish import UUID
+def build_graph(*, project_id, actors, issue_ids, contract_path, work_root, allowed_http_origin=None):
+    from native_finish import UUID, HTTP_ORIGIN_ENV, _allowed_http_origin
+    allowed_http_origin = _allowed_http_origin(allowed_http_origin)
     phases_required = ('prepare', 'machine', 'closeout')
     gaps = []
     for phase in phases_required:
@@ -35,6 +36,9 @@ def build_graph(*, project_id, actors, issue_ids, contract_path, work_root):
     machine = {'command': sys.executable, 'args': [script, 'machine', *common, '--native-finish'],
                'cwd': str(root), 'timeoutSec': 600, 'graceSec': 15}
     helper = [sys.executable, script, 'closeout', *common, '--closeout-dir', str(root/'closeout'), '--native-finish']
+    if allowed_http_origin is not None:
+        machine['env'] = {HTTP_ORIGIN_ENV: allowed_http_origin}
+        helper = ['env', HTTP_ORIGIN_ENV+'='+allowed_http_origin, *helper]
     descriptions = {
         'prepare': 'OMP: freeze the source snapshot and explicit QA contract at '+str(contract_path)+'. No machine run here.',
         'machine': 'Dedicated process actor: run frozen machine QA once, preserve receipts, then finish only this issue. Completed QA verdict FAIL is not infrastructure failure.',

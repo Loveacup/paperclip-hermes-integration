@@ -31,6 +31,20 @@ test('fake WS reconnect reconciles changes, duplicate hints do not replay unknow
 });
 const scratch = path.join(import.meta.dirname, '.test-state');
 
+test('nonactionable observations revoke pending only, preserving delivery audit',()=>{
+  for (const [kind,before,after] of [['agent','error','idle'],['approval','pending','approved'],['interaction','pending','resolved'],['run','failed','running']]) {
+    const s=B.initialState(); B.observe(s,[]);
+    const row={kind,id:'resource',agentId:'worker',status:before};
+    B.observe(s,[row]);
+    s.inflight={key:'historical',batch:[{...row}],status:'uncertain'};
+    s.lastDelivery={key:'older',batch:[{...row}],consumed:'unverified'};
+    const audit=JSON.stringify([s.inflight,s.lastDelivery]);
+    B.observe(s,[{...row,status:after}]);
+    assert.deepEqual(s.pending,{});
+    assert.equal(JSON.stringify([s.inflight,s.lastDelivery]),audit);
+  }
+});
+
 test('persisted target mismatch or missing identity fails before any I/O or state mutation',async()=>{
  const dir=fs.mkdtempSync(path.join(import.meta.dirname,'../.local/identity-test-'));
  const example=path.resolve(import.meta.dirname,'../integration.example.json');

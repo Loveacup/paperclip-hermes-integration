@@ -111,12 +111,24 @@ def pointers(state):
             safe.append(e)
             token = 'resource:' + digest(e)
             result.setdefault(token, dict(type='event', batchKey=item.get('key') if item else None, pointer=e))
-        if name == 'lastDelivery' and safe and item.get('key') and item.get('runStatus') in (
-                'succeeded', 'failed', 'timed_out', 'cancelled'):
-            token = 'terminal:' + digest([item['key'], item.get('runId'), item['runStatus']])
-            result[token] = dict(type='ceo_terminal', batchKey=item['key'], runId=item.get('runId'),
-                                 runStatus=item['runStatus'], batch=safe)
-    return result
+    # Unbound legacy snapshots keep token deduplication, not revision ordering.
+    if state.get('identity') is None:
+        return result
+    latest = {}
+    versions = {}
+    for value in result.values():
+        e = value.get('pointer', {})
+        if 'revision' in e:
+            key = (e['kind'], e['id'])
+            version = (*key, e['revision'])
+            fingerprint = digest(e)
+            if version in versions and versions[version] != fingerprint:
+                raise ValueError('conflicting revision; manual review required')
+            versions[version] = fingerprint
+            latest[key] = max(latest.get(key, 0), e['revision'])
+    return {k: v for k, v in result.items()
+            if 'revision' not in v.get('pointer', {}) or
+            v['pointer']['revision'] == latest[(v['pointer']['kind'], v['pointer']['id'])]}
 
 
 class Engine:
@@ -147,12 +159,48 @@ class Engine:
         if not route_matches(self.route_reader(), self.binding):
             return 'paused_route'
         events = pointers(snapshot)
+        source = snapshot.get('identity')
+        if source is not None and (not isinstance(source, dict) or
+                set(source) != {'apiBase', 'companyId', 'ceoAgentId'} or
+                any(not isinstance(v, str) or not v.strip() for v in source.values())):
+            raise ValueError('invalid source identity')
+        pinned = self.state.get('sourceIdentity')
+        if pinned is not None and source != pinned:
+            raise ValueError('source identity mismatch; manual review required')
+        revisions = snapshot.get('revisions', {})
+        if not isinstance(revisions, dict) or any(
+                not isinstance(k, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}:[A-Za-z0-9_-]{1,100}', k)
+                or type(v) is not int or v < 1 for k, v in revisions.items()):
+            raise ValueError('invalid revisions')
+        if source is None:
+            revisions = {}  # Legacy source has no trusted revision namespace.
+        # Existing unbound history cannot safely be attributed to a new source.
+        # Preserve it unchanged for explicit operator reconciliation.
+        if pinned is None and source is not None:
+            if self.state['initialized']:
+                raise ValueError('source identity migration requires manual review')
+            self.state['sourceIdentity'] = dict(source)
+        highwater = dict(self.state.get('highwater', {}))
+        unseen = {}
+        for token, value in events.items():
+            e = value.get('pointer', {})
+            key = e.get('kind', '') + ':' + e.get('id', '')
+            revision = e.get('revision') if source is not None else None
+            if revision is not None:
+                if revision <= highwater.get(key, 0) or revision < revisions.get(key, 0):
+                    continue
+                highwater[key] = revision
+            if token not in self.state['seen']:
+                unseen[token] = value
+        for key, revision in revisions.items():
+            highwater[key] = max(highwater.get(key, 0), revision)
         if not self.state['initialized']:
-            self.state.update(initialized=True, seen=list(events))
+            self.state.update(initialized=True, seen=list(events), highwater=highwater)
             self.save()
             return 'baseline'
-        unseen = {k: v for k, v in events.items() if k not in self.state['seen']}
         if not unseen:
+            self.state['highwater'] = highwater
+            self.save()
             return 'idle'
         # One combined call per poll. Persist uncertainty BEFORE calling, so restart
         # never retries an ambiguous accepted-but-not-recorded delivery.
@@ -171,6 +219,7 @@ class Engine:
         if not route_matches(self.route_reader(), self.binding):
             return 'paused_route'
         receipt = {'accepted': 'unknown', 'consumed': 'unverified'}
+        self.state['highwater'] = highwater
         self.state['receipts'][receipt_id] = receipt
         self.state['seen'].extend(unseen)
         self.save()

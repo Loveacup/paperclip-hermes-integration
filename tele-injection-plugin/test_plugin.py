@@ -48,16 +48,16 @@ class DeliveryTests(unittest.TestCase):
         self.calls.append((content, session_key))
         return True  # official accepted/queued, NOT consumed
 
-    def test_pending_then_inflight_dedup_terminal_supplement(self):
+    def test_pending_then_inflight_terminal_audit_never_reinjects(self):
         self.engine.tick({'pending': {'issue:issue-1': self.event}})
         inflight = dict(key='batch-1', batch=[self.event], runId='ceo-1')
         self.engine.tick({'inflight': inflight})
         self.assertEqual(len(self.calls), 1)
         self.engine.tick({'lastDelivery': dict(inflight, runStatus='succeeded')})
         self.engine.tick({'lastDelivery': dict(inflight, runStatus='succeeded')})
-        self.assertEqual(len(self.calls), 2)
+        self.assertEqual(len(self.calls), 1)
         self.assertIn('issue-1', self.calls[0][0])
-        self.assertIn('batch-1', self.calls[1][0])
+        self.assertNotIn('ceo_terminal', self.calls[0][0])
         receipts = list(self.engine.state['receipts'].values())
         self.assertTrue(all(r['accepted'] is True and r['consumed'] == 'unverified' for r in receipts))
 
@@ -120,7 +120,14 @@ console.log(JSON.stringify(snapshots));
         result = subprocess.run(['node', '--input-type=module', '-e', script],
                                 cwd=ROOT.parent, capture_output=True, text=True, check=True)
         snapshots = json.loads(result.stdout)
-        # Already-seen legacy pointer remains legacy during upgrade: no revision retrofit.
+        # Unbound history cannot be silently attributed to this bridge identity.
+        with self.assertRaisesRegex(ValueError, 'source identity migration'):
+            self.engine.tick(snapshots[0])
+        self.assertEqual(self.calls, [])
+        # A separate, fresh, explicitly bound fixture still supports legacy pointers.
+        self.engine = self.p.Engine(self.ctx, self.engine.binding,
+                                   pathlib.Path(self.temp.name) / 'bound.json', lambda: self.r)
+        self.engine.tick({'identity': snapshots[0]['identity']})
         self.engine.tick(snapshots[0])
         self.assertEqual(len(self.calls), 1)
         self.engine = self.p.Engine(self.ctx, self.engine.binding, self.engine.cursor, lambda: self.r)
@@ -214,15 +221,21 @@ class TopicTests(DeliveryTests):
             self.assertEqual(self.engine.tick({'pending': {'x': self.event}}), 'paused_route')
         self.assertEqual(self.calls, [])
 
-    def test_recurring_state_revisions_and_terminal(self):
+    def test_recurring_state_revisions_without_terminal_reinjection(self):
+        identity = dict(apiBase='http://offline.invalid/api', companyId='company', ceoAgentId='ceo')
+        self.engine = self.p.Engine(self.ctx, self.binding,
+                                   pathlib.Path(self.temp.name) / 'bound-topic.json', lambda: self.r)
+        self.engine.tick({'identity': identity})
         for revision, status in [(1, 'blocked'), (2, 'done'), (3, 'blocked')]:
             event = dict(self.event, revision=revision, status=status)
-            self.engine.tick({'pending': {'x': event}})
-            self.engine.tick({'inflight': dict(key=str(revision), batch=[event])})
+            self.engine.tick({'identity': identity, 'pending': {'x': event}})
+            self.engine.tick({'identity': identity, 'inflight': dict(key=str(revision), batch=[event])})
         self.assertEqual(len(self.calls), 3)
-        terminal = {'lastDelivery': dict(key='3', runId='r', runStatus='succeeded', batch=[event])}
+        terminal = {'identity': identity, 'lastDelivery': dict(key='3', runId='r', runStatus='succeeded', batch=[event])}
         self.engine.tick(terminal); self.engine.tick(terminal)
-        self.assertEqual(len(self.calls), 4)
+        self.assertEqual(len(self.calls), 3)
+        self.assertTrue(all(r['accepted'] is True and r['consumed'] == 'unverified'
+                            for r in self.engine.state['receipts'].values()))
 
 if __name__ == '__main__':
     unittest.main()

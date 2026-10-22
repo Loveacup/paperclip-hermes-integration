@@ -52,6 +52,35 @@ model consumption. Operator acceptance must explicitly cover these in a safe tes
 organization before enabling production use. The included CI definition also requires
 an actual remote CI run before claiming CI passed.
 
+## Runtime provenance before timeout repair
+
+Verify the affected agent's actual adapter type and the host's registered package
+entrypoint before selecting a source tree to repair. A deployed `omp_local` adapter
+is not interchangeable with this repository's `omp_native_json_local` adapter.
+Matching package version strings or a similarly named directory do not prove
+matching loaded bytes. Do not overwrite an active adapter to make its diagnostics
+match another implementation.
+
+This adapter delegates its process timeout to the pinned SDK; it does not implement
+OMP's own `--max-time` checkpoint or automatic session resume. An OMP-internal
+deadline can therefore be a different fact from the SDK timer firing in another
+adapter. Record effective budgets, implementation identity, process timeout and
+terminal-output observations separately; never infer a timer from total wall time.
+The evidence-only closeout guidance in [CEO-AGENTS.md](CEO-AGENTS.md) does not create
+a deterministic checkpoint, close an issue, grant Board access or authorize replay.
+
+An offline candidate validated here remains unactivated until its exact target,
+previous writer/owner stop evidence and scoped activation are verified. Preserve
+the deployed implementation and cursor; source-side regression success is not a
+live recovery pass.
+
+Notification cursors created without source identity require explicit operator
+reconciliation before accepting a source-bound snapshot. The plugin refuses that
+automatic migration without changing the cursor or sending a message. Do not delete
+or reset delivery history to bypass the refusal. Conflicting content for the same
+resource revision in a snapshot also stops delivery for manual review; input order
+must never decide which business state is announced.
+
 ## Deployment invariants
 
 One bridge owner per configured state/organization and one plugin owner per target.

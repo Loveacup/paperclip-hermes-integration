@@ -126,6 +126,8 @@ function redactor(env) {
   };
 }
 export const ADAPTER_TYPE = 'omp_native_json_local';
+// Reviewable code-contract identifier, not the installed native OMP version.
+export const ADAPTER_IMPLEMENTATION_VERSION = 'omp-native-json-local/observability-v1';
 export function createServerAdapter({ command, prefixArgs = [] } = {}) {
   command ??= loadConfig().omp.command;
   if(typeof command!=='string'||!path.isAbsolute(command)||command.includes('\0')||!Array.isArray(prefixArgs)||prefixArgs.some(a=>typeof a!=='string')) throw Error('invalid_installation_command');
@@ -148,13 +150,28 @@ export function createServerAdapter({ command, prefixArgs = [] } = {}) {
       return {adapterType:ADAPTER_TYPE,status:checks.some(c=>c.level==='error')?'fail':'pass',checks,testedAt:new Date().toISOString()};
     },
     async execute(ctx) {
+      const observability={implementationVersion:ADAPTER_IMPLEMENTATION_VERSION,
+        timeoutSource:own(ctx.config??{},'timeoutSec')?'ctx.config.timeoutSec':'adapter_default',
+        graceSource:own(ctx.config??{},'graceSec')?'ctx.config.graceSec':'adapter_default',
+        timeoutSec:null,graceSec:null};
+      // Only the returned SDK result establishes whether its timer fired.
+      // A rejected SDK call leaves timing unknown; neither false nor null
+      // establishes anything about native/provider deadlines.
+      const executionEvidence={sdkTimerStatus:'not_started',dispatchStarted:false,
+        timeoutFired:null,nativeDeadline:'not_observed_by_adapter'};
+      const outputEvidence={trustedNativeTerminal:false,summaryPublication:'not_attempted'};
+      const fail=(code,message)=>({...failure(code,message),resultJson:{adapter:ADAPTER_TYPE,
+        observability:{...observability},executionEvidence:{...executionEvidence},
+        outputEvidence:{...outputEvidence},
+        runOutcome:'failed',issueCompletion:'not_asserted_by_adapter'}});
       let cfg;
       try { cfg=await prepare(ctx); } catch (error) {
-        const result=failure('omp_native_input_invalid','Invalid local adapter input; check cwd, model, timeout, permissions, credential env and prompt.');
-        if(error instanceof EnvInputError) result.resultJson={inputDiagnostic:error.diagnostic};
+        const result=fail('omp_native_input_invalid','Invalid local adapter input; check cwd, model, timeout, permissions, credential env and prompt.');
+        if(error instanceof EnvInputError) result.resultJson.inputDiagnostic=error.diagnostic;
         return result;
       }
-      if(ctx.signal?.aborted) return failure('omp_native_cancelled','Run cancelled before dispatch.');
+      observability.timeoutSec=cfg.timeoutSec;observability.graceSec=cfg.graceSec;
+      if(ctx.signal?.aborted) return fail('omp_native_cancelled','Run cancelled before dispatch.');
       const {model,prompt}=cfg;
       const args = ['-p','--mode','json','--no-session','--cwd',cfg.cwd,'--no-extensions','--no-lsp','--approval-mode','yolo',...(cfg.permission==='deny'?['--no-tools']:cfg.permission==='reads'?['--tools','read,grep,glob']:[]),...(model ? ['--model',model]:[])];
       const env={...cfg.env,...buildPaperclipEnv(ctx.agent),...buildRuntimeToolsEnv(ctx.runtimeTools)};
@@ -165,9 +182,9 @@ export function createServerAdapter({ command, prefixArgs = [] } = {}) {
       if(typeof taskId==='string') env.PAPERCLIP_TASK_ID=taskId;
       if(typeof wakeReason==='string') env.PAPERCLIP_WAKE_REASON=wakeReason;
       const clean=redactor(env), output=outputCollector();
-      try { await ctx.onMeta?.({adapterType:ADAPTER_TYPE,command,cwd:cfg.cwd}); }
-      catch {return failure('omp_native_metadata_failed','Run metadata recording failed before dispatch.');}
-      if(ctx.signal?.aborted) return failure('omp_native_cancelled','Run cancelled before dispatch.');
+      try { await ctx.onMeta?.({adapterType:ADAPTER_TYPE,command,cwd:cfg.cwd,observability:{...observability},executionEvidence:{...executionEvidence},outputEvidence:{...outputEvidence}}); }
+      catch {return fail('omp_native_metadata_failed','Run metadata recording failed before dispatch.');}
+      if(ctx.signal?.aborted) return fail('omp_native_cancelled','Run cancelled before dispatch.');
       let proc, cancelled=false, cancelDone=null, publicationFailed=false;
       const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
       // SDK has a registry but no AbortSignal option. Only signal this run's captured group.
@@ -186,26 +203,38 @@ export function createServerAdapter({ command, prefixArgs = [] } = {}) {
       const poll=setInterval(checkCancellation,20);
       try {
         await ctx.onCancellationReady?.();
-        if(ctx.signal?.aborted) return failure('omp_native_cancelled','Run cancelled before dispatch.');
+        if(ctx.signal?.aborted) return fail('omp_native_cancelled','Run cancelled before dispatch.');
+        executionEvidence.sdkTimerStatus='unknown';
         proc=await runChildProcess(ctx.runId,command,[...prefixArgs,...args],{
           cwd:cfg.cwd,env,timeoutSec:cfg.timeoutSec,graceSec:cfg.graceSec,stdin:prompt,
           onLog:async(stream,chunk)=>{if(stream==='stdout') output.feed(chunk);},
           onLogError:()=>{publicationFailed=true;},
-          onSpawn:async(meta)=>{ctx.onDispatch?.();await ctx.onSpawn?.(meta);},
+          onSpawn:async(meta)=>{executionEvidence.dispatchStarted=true;ctx.onDispatch?.();await ctx.onSpawn?.(meta);},
         });
+        executionEvidence.sdkTimerStatus='result_received';
+        executionEvidence.timeoutFired=proc.timedOut;
         if(cancelDone) await cancelDone;
-      } catch {return failure('omp_native_runner_failed','Local OMP runner failed; do not automatically replay the task.');}
+      } catch {
+        const parsed=output.finish();
+        outputEvidence.trustedNativeTerminal=!parsed.failed&&parsed.stop!==null;
+        return fail('omp_native_runner_failed','Local OMP runner failed; do not automatically replay the task.');
+      }
       finally {clearInterval(poll);ctx.signal?.removeEventListener('abort',checkCancellation);}
       const parsed=output.finish();
+      // Protocol trust is separate from successful stop, model verification,
+      // process exit and publication. Malformed/truncated streams are untrusted.
+      outputEvidence.trustedNativeTerminal=!parsed.failed&&parsed.stop!==null;
       const actualModel=parsed.resolvedProvider && parsed.resolvedModel ? `${parsed.resolvedProvider}/${parsed.resolvedModel}` : null;
       const modelError=!actualModel ? 'omp_native_model_unresolved' : model?.includes('/') && model!==actualModel ? 'omp_native_model_mismatch' : null;
       const modelFields={requestedModel:model ? clean(model):null,resolvedProvider:parsed.resolvedProvider ? clean(parsed.resolvedProvider):null,resolvedModel:parsed.resolvedModel ? clean(parsed.resolvedModel):null};
       const summary=parsed.failed ? '' : clean(parsed.text);
-      try {if(summary) await ctx.onLog('stdout',summary+'\n');} catch {publicationFailed=true;}
+      try {
+        if(summary) {await ctx.onLog('stdout',summary+'\n');outputEvidence.summaryPublication='published';}
+      } catch {publicationFailed=true;outputEvidence.summaryPublication='failed';}
       const ok=!cancelled&&!publicationFailed&&proc.exitCode===0&&!proc.signal&&!proc.timedOut&&!parsed.failed&&parsed.stop==='stop'&&!modelError;
       return {exitCode:ok ? 0 : (proc.exitCode || 1),signal:proc.signal,timedOut:proc.timedOut,summary,model:actualModel ? clean(actualModel):null,...modelFields,clearSession:true,sessionId:null,sessionParams:null,
         ...(ok ? {} : {errorCode:cancelled ? 'omp_native_cancelled' : proc.timedOut ? 'omp_native_timeout' : publicationFailed ? 'omp_native_publication_failed' : !parsed.failed&&parsed.stop==='error' ? 'omp_native_provider_error' : !parsed.failed&&parsed.stop==='stop'&&modelError ? modelError : 'omp_native_run_failed',errorMessage:'OMP did not return a clean terminal assistant stop with verified model identity and exit zero.'}),
-        resultJson:{adapter:ADAPTER_TYPE,...modelFields,stopReason:parsed.stop,providerError:!parsed.failed&&parsed.providerError ? clean(parsed.providerError):null,processExitCode:proc.exitCode,toolErrorCount:parsed.toolErrorCount,runOutcome:ok?'succeeded':'failed',issueCompletion:'not_asserted_by_adapter'},
+        resultJson:{adapter:ADAPTER_TYPE,observability,executionEvidence,outputEvidence,...modelFields,stopReason:parsed.stop,providerError:!parsed.failed&&parsed.providerError ? clean(parsed.providerError):null,processExitCode:proc.exitCode,toolErrorCount:parsed.toolErrorCount,runOutcome:ok?'succeeded':'failed',issueCompletion:'not_asserted_by_adapter'},
       };
     },
   };

@@ -41,6 +41,7 @@ export function observe(s, rows) {
         : r.kind === 'issue' ? ['blocked','in_review','done'].includes(r.status) || previous !== undefined
         : ['pending','pending_approval','revision_requested'].includes(r.status);
       if (actionable) s.pending[key] = {...r, revision:s.revisions[key]};
+      else delete s.pending[key]; // Current state revokes queued work, never delivery history.
     }
     s.fingerprints[key] = fp;
     if (r.kind === 'run') {

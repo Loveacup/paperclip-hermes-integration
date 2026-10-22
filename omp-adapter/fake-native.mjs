@@ -9,6 +9,10 @@ const slash=selected.indexOf('/');
 const provider=slash<0?'default':selected.slice(0,slash), model=slash<0?selected:selected.slice(slash+1);
 const assistant=(text,stop='stop')=>({role:'assistant',provider,model,content:[{type:'thinking',thinking:'PRIVATE_THOUGHT'},{type:'text',text}],stopReason:stop});
 const terminal=(text,stop='stop',extra={})=>emit({type:'agent_end',messages:[assistant(text,stop)],isTerminal:true,...extra});
+if(mode==='hang-no-terminal') {
+ emit({type:'agent_start'});
+ await new Promise(()=>setInterval(()=>{},1000));
+}
 if(mode==='hang') {
  process.on('SIGTERM',()=>{});
  const child=spawn(process.execPath,['-e',"process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"],{stdio:'ignore'});

@@ -16,6 +16,57 @@ function context(config = {}, extra = {}) {
   return { runId: `offline-${crypto.randomUUID()}`, agent: { id:'agent', companyId:'company', adapterConfig:{model:'agent/model'} },
     config: { cwd, ...config }, context: { taskPrompt:'offline prompt' }, runtime:{}, onLog:async()=>{}, ...extra };
 }
+test('observability: stable implementation and effective budget agree in metadata and result', async () => {
+  for(const config of [{timeoutSec:600,graceSec:2},{}]) {
+    const metas=[];let dispatches=0;
+    const result=await make().execute(context(config,{onMeta:async m=>metas.push(m),onDispatch:()=>dispatches++}));
+    assert.equal(result.exitCode,0);
+    assert.equal(dispatches,1);
+    assert.equal(metas.length,1);
+    const evidence=result.resultJson.observability;
+    assert.ok(evidence,'result must carry implementation/budget evidence');
+    assert.equal(evidence.implementationVersion,'omp-native-json-local/observability-v1');
+    assert.deepEqual(evidence,metas[0].observability);
+    assert.equal(evidence.timeoutSource,'timeoutSec' in config?'ctx.config.timeoutSec':'adapter_default');
+    assert.equal(evidence.graceSource,'graceSec' in config?'ctx.config.graceSec':'adapter_default');
+    assert.equal(evidence.timeoutSec,config.timeoutSec??900);
+    assert.equal(evidence.graceSec,config.graceSec??5);
+    assert.equal(result.resultJson.issueCompletion,'not_asserted_by_adapter');
+  }
+});
+test('observability: early failures distinguish no SDK invocation from unknown runner timing', async () => {
+  const ac=new AbortController();ac.abort();
+  for(const [config,extra,adapter,code,timer] of [
+    [{timeoutSec:0},{},make(),'omp_native_input_invalid','not_started'],
+    [{},{signal:ac.signal},make(),'omp_native_cancelled','not_started'],
+    [{},{onMeta:async()=>{throw Error('secret-cause');}},make(),'omp_native_metadata_failed','not_started'],
+    [{},{onCancellationReady:async()=>{throw Error('secret-cause');}},make(),'omp_native_runner_failed','not_started'],
+    [{},{},createServerAdapter({command:'/no-such-executable'}),'omp_native_runner_failed','unknown'],
+  ]) {
+    let dispatches=0;
+    const result=await adapter.execute(context(config,{...extra,onDispatch:()=>dispatches++}));
+    assert.equal(result.errorCode,code);
+    assert.equal(dispatches,0);
+    assert.ok(result.resultJson?.observability,'early result must retain safe provenance');
+    assert.equal(result.resultJson.observability.implementationVersion,'omp-native-json-local/observability-v1');
+    assert.equal(result.resultJson.observability.timeoutSec,config.timeoutSec===0?null:900);
+    assert.equal(result.resultJson.observability.timeoutSource,config.timeoutSec===0?'ctx.config.timeoutSec':'adapter_default');
+    assert.equal(result.resultJson.executionEvidence.sdkTimerStatus,timer);
+    assert.equal(result.resultJson.executionEvidence.dispatchStarted,false);
+    assert.equal(result.resultJson.executionEvidence.timeoutFired,null);
+    assert.equal(result.resultJson.executionEvidence.nativeDeadline,'not_observed_by_adapter');
+    assert.deepEqual(result.resultJson.outputEvidence,{trustedNativeTerminal:false,summaryPublication:'not_attempted'});
+    assert.equal(result.resultJson.issueCompletion,'not_asserted_by_adapter');
+    assert.doesNotMatch(JSON.stringify(result),/secret-cause/);
+  }
+});
+test('observability: SDK result is the source of timeout fact, not native deadline inference',async()=>{
+  let meta;
+  const result=await make().execute(context({timeoutSec:600},{onMeta:async m=>{meta=m;}}));
+  assert.deepEqual(meta.executionEvidence,{sdkTimerStatus:'not_started',dispatchStarted:false,timeoutFired:null,nativeDeadline:'not_observed_by_adapter'});
+  assert.deepEqual(meta.outputEvidence,{trustedNativeTerminal:false,summaryPublication:'not_attempted'});
+  assert.deepEqual(result.resultJson.executionEvidence,{sdkTimerStatus:'result_received',dispatchStarted:true,timeoutFired:false,nativeDeadline:'not_observed_by_adapter'});
+});
 test('task model > agent model > no --model (OMP default), passed to actual subprocess', async () => {
   for (const [config, agentModel, expected] of [[{model:'task/model'}, 'agent/model','task/model'],[{},'agent/model','agent/model'],[{},undefined,null]]) {
     const ctx = context(config); ctx.agent.adapterConfig = agentModel ? {model:agentModel} : {};
@@ -176,12 +227,40 @@ test('bounded timeout kills owned process group including SIGTERM-resistant desc
   assert.equal(result.errorCode,'omp_native_timeout');
   const pids=JSON.parse(result.summary);
   for(const pid of [pids.pid,pids.descendant]) assertTerminated(pid);
+  assert.deepEqual(result.resultJson.outputEvidence,{trustedNativeTerminal:true,summaryPublication:'published'});
+  assert.equal(result.resultJson.executionEvidence.timeoutFired,true);
+  assert.equal(result.resultJson.runOutcome,'failed');
 });
 test('timeout facts survive a failing public-output callback',async()=>{
   const result=await make('hang').execute(context({timeoutSec:1,graceSec:1},{onLog:async()=>{throw new Error('offline log failure');}}));
   assert.equal(result.timedOut,true);
   assert.equal(result.errorCode,'omp_native_timeout');
   assert.notEqual(result.signal,null);
+  assert.deepEqual(result.resultJson.outputEvidence,{trustedNativeTerminal:true,summaryPublication:'failed'});
+  assert.equal(result.resultJson.executionEvidence.timeoutFired,true);
+});
+test('observability: no terminal hang has no fabricated summary or publication',async()=>{
+  let dispatches=0;const logs=[];
+  const result=await make('hang-no-terminal').execute(context({timeoutSec:1,graceSec:1},{onDispatch:()=>dispatches++,onLog:async(s,c)=>logs.push(c)}));
+  assert.equal(dispatches,1);
+  assert.equal(result.errorCode,'omp_native_timeout');
+  assert.equal(result.summary,'');
+  assert.deepEqual(logs,[]);
+  assert.equal(result.resultJson.executionEvidence.timeoutFired,true);
+  assert.deepEqual(result.resultJson.outputEvidence,{trustedNativeTerminal:false,summaryPublication:'not_attempted'});
+});
+test('observability: terminal trust and summary publication are independent of process success',async()=>{
+  for(const [mode,trusted,publication] of [['normal',true,'published'],['empty',true,'not_attempted'],['error',true,'not_attempted'],['missing-stop',false,'not_attempted'],['nonterminal',false,'not_attempted'],['continuing',false,'not_attempted'],['duplicate-stop',false,'not_attempted'],['after-stop',false,'not_attempted'],['truncated',false,'not_attempted'],['malformed',false,'not_attempted']]) {
+    const result=await make(mode).execute(context());
+    assert.deepEqual(result.resultJson.outputEvidence,{trustedNativeTerminal:trusted,summaryPublication:publication},mode);
+  }
+  const failed=await make().execute(context({},{onLog:async()=>{throw Error('private failure');}}));
+  assert.equal(failed.errorCode,'omp_native_publication_failed');
+  assert.deepEqual(failed.resultJson.outputEvidence,{trustedNativeTerminal:true,summaryPublication:'failed'});
+  const spawnFailed=await make().execute(context({},{onSpawn:async()=>{throw Error('private failure');}}));
+  assert.equal(spawnFailed.errorCode,'omp_native_publication_failed');
+  assert.equal(spawnFailed.resultJson.outputEvidence.summaryPublication,'published');
+  assert.doesNotMatch(JSON.stringify([failed,spawnFailed]),/private failure/);
 });
 test('Paperclip AbortSignal cancels running group, preserves cancellation result and clears registry',async()=>{
   const {runningProcesses}=await import('@paperclipai/adapter-utils/server-utils');

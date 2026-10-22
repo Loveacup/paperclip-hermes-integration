@@ -20,17 +20,6 @@ jobs:
         with:
           python-version: '3.11'
       - run: npm ci
-      - name: Diagnose timeout process state on Linux
-        if: runner.os == 'Linux'
-        run: |
-          status=0
-          for attempt in 1 2 3 4 5 6; do
-            echo "Timeout diagnostic sample $attempt"
-            node --test --test-name-pattern='^bounded timeout kills owned process group' omp-adapter/adapter.test.mjs || status=1
-          done
-          exit "$status"
-        env:
-          PAPERCLIP_INTEGRATION_CONFIG: ${{ github.workspace }}/integration.example.json
       - run: npm test
       - run: npm run config:check -- integration.example.json
       - run: npm run setup -- integration.example.json

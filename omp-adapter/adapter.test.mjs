@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { createServerAdapter } from './index.mjs';
 // Public-output fixture assertions must not depend on host credential values
 // (a host sensitive flag may legitimately contain common text such as "true").
@@ -76,23 +77,105 @@ test('an explicitly invalid agent default model is rejected, not treated as abse
     assert.equal(result.errorCode,'omp_native_input_invalid');
   }
 });
+const readProcessState=(pid)=>execFileSync('ps',['-o','stat=','-p',String(pid)],{
+  encoding:'utf8',timeout:1000,stdio:['ignore','pipe','pipe']
+}).trim();
+function assertTerminated(pid, {signal=process.kill, readState=readProcessState}={}) {
+  assert.ok(Number.isSafeInteger(pid)&&pid>0,'fixture PID must be a positive integer');
+  try {signal(pid,0);} catch(error) {
+    if(error.code==='ESRCH') return;
+    throw error;
+  }
+  let state;
+  try {state=readState(pid);} catch(error) {
+    // A successfully probed PID may be reaped before ps reads it. Only ESRCH,
+    // not a failed query or a permissions error, establishes absence.
+    try {signal(pid,0);} catch(probeError) {
+      if(probeError.code==='ESRCH') return;
+      throw probeError;
+    }
+    throw error;
+  }
+  // kill(pid, 0) also succeeds for a zombie: execution has ended, but its
+  // parent (possibly PID 1) has not reaped the process record yet.
+  assert.match(state,/^Z[+<NslL]*$/,`Fixture PID ${pid} has not terminated (state ${JSON.stringify(state)})`);
+}
+test('termination oracle recognizes an exited zombie rather than a running process',()=>{
+  assertTerminated(424242,{signal:()=>{},readState:()=> 'Z'});
+});
+test('termination oracle still rejects running, sleeping, stopped, and unknown states',()=>{
+  for(const state of ['R','S','D','T','I','?','', 'Z malformed']) {
+    assert.throws(()=>assertTerminated(424242,{signal:()=>{},readState:()=>state}),{code:'ERR_ASSERTION'});
+  }
+  // Real negative control: the test runner itself must never look terminated.
+  assert.throws(()=>assertTerminated(process.pid),{code:'ERR_ASSERTION'});
+});
+test('termination oracle accepts ESRCH without querying process state',()=>{
+  assertTerminated(424242,{
+    signal:()=>{throw Object.assign(new Error('gone'),{code:'ESRCH'});},
+    readState:()=>{assert.fail('must not query a reaped PID');}
+  });
+});
+test('termination oracle does not confuse permission or process-query errors with exit',()=>{
+  for(const code of ['EPERM','EACCES']) {
+    assert.throws(()=>assertTerminated(424242,{
+      signal:()=>{throw Object.assign(new Error(code),{code});},
+      readState:()=>{assert.fail('must not query an unprobeable PID');}
+    } ),{code});
+  }
+  assert.throws(()=>assertTerminated(424242,{
+    signal:()=>{},readState:()=>{throw Object.assign(new Error('ps failed'),{code:'EIO'});}
+  }),{code:'EIO'});
+});
+test('termination oracle handles a PID reaped between the signal probe and ps',()=>{
+  let probes=0;
+  assertTerminated(424242,{
+    signal:()=>{if(++probes===2) throw Object.assign(new Error('gone'),{code:'ESRCH'});},
+    readState:()=>{throw Object.assign(new Error('no matching PID'),{status:1});}
+  });
+  assert.equal(probes,2);
+});
+test('termination oracle accepts a real retained zombie, not just a synthetic state',async()=>{
+  const holder=spawn('python3',['-u','-c',`
+import os, subprocess, sys, time
+pid = os.fork()
+if pid == 0:
+    os._exit(0)
+try:
+    for _ in range(100):
+        state = subprocess.check_output(['ps', '-o', 'stat=', '-p', str(pid)], text=True).strip()
+        if state.startswith('Z'):
+            print(pid, flush=True)
+            sys.stdin.read(1)
+            break
+        time.sleep(0.01)
+    else:
+        raise RuntimeError('owned child did not become a zombie')
+finally:
+    os.waitpid(pid, 0)
+  `],{stdio:['pipe','pipe','pipe']});
+  const closed=once(holder,'close');
+  // Attach a handler immediately so a failed spawn cannot be an unhandled rejection.
+  closed.catch(()=>{});
+  try {
+    const [line]=await once(holder.stdout,'data',{signal:AbortSignal.timeout(5000)});
+    const pid=Number(line.toString().trim());
+    assert.match(readProcessState(pid),/^Z[+<NslL]*$/);
+    // Prove the old assertion fails on this actual kernel state.
+    assert.equal(process.kill(pid,0),true);
+    assertTerminated(pid);
+  } finally {
+    if(!holder.stdin.destroyed) holder.stdin.end('\n');
+    const [code]=await closed;
+    assert.equal(code,0,'zombie holder must reap its owned child and exit cleanly');
+  }
+});
 test('bounded timeout kills owned process group including SIGTERM-resistant descendant',async()=>{
   const result=await make('hang').execute(context({timeoutSec:1,graceSec:1}));
   assert.equal(result.timedOut,true);
   assert.equal(result.errorCode,'omp_native_timeout');
   const pids=JSON.parse(result.summary);
-  for(const pid of [pids.pid,pids.descendant]) {
-    let signalError;
-    try {process.kill(pid,0);} catch(error) {signalError=error;}
-    if(!signalError) {
-      let procStat='unavailable';
-      if(process.platform==='linux') {
-        try {procStat=readFileSync(`/proc/${pid}/stat`,'utf8').trim();} catch(error) {procStat=error.code;}
-      }
-      assert.fail(`Owned fixture PID is still addressable: ${JSON.stringify({pid,platform:process.platform,procStat})}`);
-    }
-    assert.equal(signalError.code,'ESRCH');
-  }
+  for(const pid of [pids.pid,pids.descendant]) assertTerminated(pid);
 });
 test('timeout facts survive a failing public-output callback',async()=>{
   const result=await make('hang').execute(context({timeoutSec:1,graceSec:1},{onLog:async()=>{throw new Error('offline log failure');}}));

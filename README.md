@@ -22,7 +22,7 @@
 Connect **Paperclip** task changes to a precisely bound **Hermes** conversation, while keeping **OMP** workers on their native execution path. A thin integration—not another scheduler, task database, or bot that bypasses your agent.
 
 > [!NOTE]
-> **Start locally. Activate deliberately.** Quick start installs dependencies and runs synthetic offline checks. It does not deploy services, invoke a real model, or send messages. The repository is currently private; cloning requires access.
+> **Start locally. Activate deliberately.** Quick start installs dependencies and runs synthetic offline checks. It does not deploy services, invoke a real model, or send messages.
 
 ## ✨ What you get
 

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import { createServerAdapter } from './index.mjs';
 // Public-output fixture assertions must not depend on host credential values
 // (a host sensitive flag may legitimately contain common text such as "true").
@@ -80,7 +81,18 @@ test('bounded timeout kills owned process group including SIGTERM-resistant desc
   assert.equal(result.timedOut,true);
   assert.equal(result.errorCode,'omp_native_timeout');
   const pids=JSON.parse(result.summary);
-  for(const pid of [pids.pid,pids.descendant]) assert.throws(()=>process.kill(pid,0),{code:'ESRCH'});
+  for(const pid of [pids.pid,pids.descendant]) {
+    let signalError;
+    try {process.kill(pid,0);} catch(error) {signalError=error;}
+    if(!signalError) {
+      let procStat='unavailable';
+      if(process.platform==='linux') {
+        try {procStat=readFileSync(`/proc/${pid}/stat`,'utf8').trim();} catch(error) {procStat=error.code;}
+      }
+      assert.fail(`Owned fixture PID is still addressable: ${JSON.stringify({pid,platform:process.platform,procStat})}`);
+    }
+    assert.equal(signalError.code,'ESRCH');
+  }
 });
 test('timeout facts survive a failing public-output callback',async()=>{
   const result=await make('hang').execute(context({timeoutSec:1,graceSec:1},{onLog:async()=>{throw new Error('offline log failure');}}));

@@ -7,6 +7,7 @@
   "engines": {"node": ">=24.11.0"},
   "scripts": {
     "test": "node scripts/test.mjs",
+    "ceo": "node scripts/ceo.mjs",
     "test:host": "node scripts/host-tests.mjs hermes",
     "test:segmented-qa": "python3 -B segmented-qa/run_tests.py",
     "test:server": "node scripts/host-tests.mjs server",

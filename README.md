@@ -52,6 +52,25 @@ npm run config:check -- integration.example.json
 
 The default suite uses synthetic fixtures. It needs neither the author's installed Hermes/OMP nor production credentials or private captures. For a real installation, continue with the configuration guide below.
 
+## Authenticated CEO management
+
+Use the same deployment-owned integration JSON for management; credentials stay in the protected process environment referenced by `authEnv`:
+
+```sh
+npm run ceo -- /absolute/path/integration.local.json inventory
+npm run ceo -- /absolute/path/integration.local.json api GET /issues/ISSUE_UUID
+```
+
+The shared-config entrypoint supplies the API, company and CEO target without duplicating a second identity file. Native runs retain their own short-lived credentials and active-run checks; incomplete native identity or a conflicting API target refuses before networking. Command arguments cannot override the configured identity. Writes require `--execute` and an authorized operation; unknown effects are not automatically replayed.
+
+See the [CLI scope and standalone compatibility](ceo-control/README.md) and [CEO contract](docs/CEO-AGENTS.md). Installing a client neither grants permissions nor bypasses issue-bound run requirements or Board reconciliation.
+
+## Full-rebuild status
+
+The CEO CLI is included, alongside the bridge, injection plugin, public native-JSON adapter and segmented-QA components. **Complete parity with the existing deployment is still in progress**: the richer `omp_local` implementation, version/hash-gated server patch package and generic native activation/report-publication helpers are not yet part of this release. Do not substitute the existing thin adapter for a different executor contract or assume `setup` installs the whole stack.
+
+The [rebuild plan and acceptance checklist (Chinese)](docs/REBUILD-PLAN.zh-CN.md) distinguish shipped components, isolated work and pending clean-target/live checks. Rebuilding means recreating the agreed capabilities from pinned public sources plus your configuration and external credentials—not copying another organization's IDs, history, cursors or uncertain-write state.
+
 ## Segmented QA: keep execution separate from closeout
 
 Use **prepare (OMP) → machine (dedicated process actor, no model) → closeout (OMP + fixed helper)** when the tests finish quickly but model-driven reporting may hit a run deadline. Frozen source, durable single-execution admission and hash-bound receipts let closeout verify and report existing results without rerunning QA. Incomplete evidence and uncertain native writes stop for reconciliation; they are not replayed.

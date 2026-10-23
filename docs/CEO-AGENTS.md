@@ -16,6 +16,26 @@ inspection; never replay them automatically. A fresh installation establishes a
 baseline and does not announce old events. Changing a destination or deleting its
 cursor requires explicit operator review.
 
+## Authenticated management entrypoint
+
+Use the deployment-owned integration JSON with the repository CLI:
+
+```sh
+npm run ceo -- /absolute/path/integration.local.json inventory
+npm run ceo -- /absolute/path/integration.local.json api GET /issues/ISSUE_UUID
+# A write additionally requires --execute; JSON body is read from stdin.
+```
+
+This entrypoint maps the shared nonsecret target configuration to `ceo-control/ceo.mjs`.
+Supply the configured `authEnv` externally; do not put credentials in JSON or argv.
+Native runs retain their own short-lived `PAPERCLIP_*` identity and require a matching
+configured API target, company, CEO and running run. Partial native context refuses
+instead of falling back to a bridge key. Target/config overrides through command
+arguments are rejected. The low-level CLI's standalone configuration remains
+available for compatibility; see [its scope and limitations](../ceo-control/README.md).
+Neither entrypoint installs server patches, grants permissions or bypasses Board
+reconciliation. A supported API route is not proof of authorization to use it.
+
 ## Progress and disposition are separate acceptance gates
 
 A child task reaching `done` is a business handoff, not proof that its provider

@@ -52,6 +52,25 @@ npm run config:check -- integration.example.json
 
 默认测试使用合成 fixture，不依赖作者本机的 Hermes/OMP、真实凭据或私密捕获记录。准备真实安装时，再进入下面的配置流程。
 
+## CEO 认证管理入口
+
+管理操作使用同一份部署者控制的 integration JSON；凭据仍由 `authEnv` 引用的受保护进程环境提供：
+
+```sh
+npm run ceo -- /absolute/path/integration.local.json inventory
+npm run ceo -- /absolute/path/integration.local.json api GET /issues/ISSUE_UUID
+```
+
+共享配置入口提供 API、公司和 CEO 目标，不再重复维护另一份身份文件。原生运行保留自己的短期凭据及活跃 run 校验；native 身份不完整或 API 目标冲突时，在联网前拒绝，不退回长期集成凭据。命令参数不能覆盖配置中的身份。写操作还需要 `--execute` 和对应操作授权；未知写效果不自动重放。
+
+详见 [CLI 范围与独立配置兼容说明（英文）](ceo-control/README.md) 和 [CEO 工作约定（英文）](docs/CEO-AGENTS.md)。安装客户端不等于授予权限，也不会绕过 issue-bound run 或 Board 对账要求。
+
+## 完整重建进度
+
+CEO CLI 已纳入仓库，与事件桥、注入插件、公开 native-JSON 适配器和分段 QA 组件一起交付。**与现有部署完整对齐仍在进行**：更丰富的 `omp_local`、版本／哈希门控的服务端补丁包，以及通用原生激活和正式报告发布 helper，尚未包含在本次发布中。不要用现有薄适配器静默替代另一种执行契约，也不要把 `setup` 当作全栈安装器。
+
+[重建计划与验收清单](docs/REBUILD-PLAN.zh-CN.md) 分开记录已交付组件、隔离实现及待完成的干净目标／真实验收。重建指从固定公开来源、目标配置和外部凭据恢复已约定能力，不是复制其他组织的身份、历史、cursor 或未知写意图。
+
 ## 分段 QA：分离机器执行与收口
 
 当测试很快完成、模型驱动的报告收口却可能触及截止时间时，使用 **准备（OMP）→ 机器执行（专用 process、无模型）→ 收口（OMP＋固定 helper）**。冻结源、持久的单次执行准入和哈希绑定 receipt，让收口只验证、报告既有结果，不重跑 QA。证据不完整或原生写效果未知时停止并对账，不重放。

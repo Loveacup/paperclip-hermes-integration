@@ -1,0 +1,6 @@
+__pycache__/
+host-deps/node_modules/
+npm-cache/
+host-fixture-*/
+tmp*/
+host/apply-fixture-*/

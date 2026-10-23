@@ -65,9 +65,21 @@ npm run ceo -- /absolute/path/integration.local.json api GET /issues/ISSUE_UUID
 
 详见 [CLI 范围与独立配置兼容说明（英文）](ceo-control/README.md) 和 [CEO 工作约定（英文）](docs/CEO-AGENTS.md)。安装客户端不等于授予权限，也不会绕过 issue-bound run 或 Board 对账要求。
 
+## 版本绑定的 CEO 服务端补丁
+
+可选的 [`server-patch/` 补丁包（英文）](server-patch/README.md) 从公开 Paperclip `2026.1005.0` 源码重建已审查的生命周期授权修改。保留同公司活跃 CEO、目标范围 configure grant、待审批人员保护及真实取消／停止归因，不把角色检查变成权限绕过。
+
+```sh
+npm run test:server-patch
+# 对明确准备的 pristine 源码副本仅检查；不带 --apply 不写入。
+python3 -B server-patch/apply.py --root /absolute/pristine-server/package/dist
+```
+
+补丁包固定 tarball 完整性、三个目标及三个只读依赖的源码哈希。默认只检查；漂移、不安全路径别名或已打补丁的输入均拒绝。离线合成测试、可选的 41 项公开源码 AST／VM 测试，与真实服务验收分开。对已安装服务应用补丁仍需单独明确授权；部分写入不自动回滚或重试。详见[准备与应用说明（英文）](server-patch/README.md)及[上游许可](THIRD_PARTY_NOTICES.md)。
+
 ## 完整重建进度
 
-CEO CLI 已纳入仓库，与事件桥、注入插件、公开 native-JSON 适配器和分段 QA 组件一起交付。**与现有部署完整对齐仍在进行**：更丰富的 `omp_local`、版本／哈希门控的服务端补丁包，以及通用原生激活和正式报告发布 helper，尚未包含在本次发布中。不要用现有薄适配器静默替代另一种执行契约，也不要把 `setup` 当作全栈安装器。
+CEO CLI 和版本／哈希门控的服务端补丁包已纳入仓库，与事件桥、注入插件、公开 native-JSON 适配器和分段 QA 组件一起交付。**与现有部署完整对齐仍在进行**：更丰富的 `omp_local`，以及通用原生激活和正式报告发布 helper，尚未包含在本次发布中。不要用现有薄适配器静默替代另一种执行契约，也不要把 `setup` 当作全栈安装器。
 
 [重建计划与验收清单](docs/REBUILD-PLAN.zh-CN.md) 分开记录已交付组件、隔离实现及待完成的干净目标／真实验收。重建指从固定公开来源、目标配置和外部凭据恢复已约定能力，不是复制其他组织的身份、历史、cursor 或未知写意图。
 

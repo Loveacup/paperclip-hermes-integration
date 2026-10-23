@@ -10,6 +10,7 @@
     "ceo": "node scripts/ceo.mjs",
     "test:host": "node scripts/host-tests.mjs hermes",
     "test:segmented-qa": "python3 -B segmented-qa/run_tests.py",
+    "test:server-patch": "python3 -B -m unittest discover -s server-patch -p test_offline.py",
     "test:server": "node scripts/host-tests.mjs server",
     "test:installed-omp": "node scripts/host-tests.mjs omp",
     "config:check": "node scripts/config.mjs",

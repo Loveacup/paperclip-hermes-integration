@@ -1,0 +1,165 @@
+--- a/routes/agents.js
++++ b/routes/agents.js
+@@ -1606,6 +1606,27 @@
+         }
+         return null;
+     }
++    async function assertCanControlAgentLifecycle(req, targetAgent) {
++        if (req.actor.type === "board") return;
++        assertCompanyAccess(req, targetAgent.companyId);
++        if (req.actor.type !== "agent" || !req.actor.agentId)
++            throw forbidden("Board or active company CEO required");
++        const caller = await svc.getById(req.actor.agentId);
++        if (!caller || caller.companyId !== targetAgent.companyId || caller.role !== "ceo" ||
++            ["paused", "terminated", "pending_approval"].includes(caller.status))
++            throw forbidden("Active company CEO required");
++        // Do not turn lifecycle control into an implicit hire approval decision.
++        if (targetAgent.status === "pending_approval")
++            throw forbidden("Pending hire decisions require Board access");
++        const decision = await access.decide({
++            actor: req.actor,
++            action: "agent_config:update",
++            resource: { type: "agent", companyId: targetAgent.companyId, agentId: targetAgent.id },
++            scope: { requiresChangeGrant: true, targetAgentId: targetAgent.id },
++        });
++        if (!decision.allowed)
++            throw forbidden(decision.explanation, authorizationDeniedDetails(decision));
++    }
+     async function getAccessibleAgent(req, res, id) {
+         const agent = await getAccessibleResource(req, res, svc.getById(id), "Agent not found");
+         if (!agent)
+@@ -4585,11 +4606,13 @@
+         res.json(redactAgentRowForResponse(agent));
+     });
+     router.post("/agents/:id/pause", async (req, res) => {
+-        assertBoard(req);
++        if (req.actor.type !== "agent") assertBoard(req);
+         const id = req.params.id;
+-        if (!(await getAccessibleAgent(req, res, id))) {
+-            return;
+-        }
++        const existing = await getAccessibleAgent(req, res, id);
++        if (!existing) {
++            return;
++        }
++        await assertCanControlAgentLifecycle(req, existing);
+         const agent = await svc.pause(id);
+         if (!agent) {
+             res.status(404).json({ error: "Agent not found" });
+@@ -4598,8 +4621,7 @@
+         await heartbeat.cancelActiveForAgent(id);
+         await logActivity(db, {
+             companyId: agent.companyId,
+-            actorType: "user",
+-            actorId: req.actor.userId ?? "board",
++            ...getActorInfo(req),
+             action: "agent.paused",
+             entityType: "agent",
+             entityId: agent.id,
+@@ -4716,12 +4738,13 @@
+         res.json(redactAgentRowForResponse(agent));
+     });
+     router.post("/agents/:id/terminate", async (req, res) => {
+-        assertBoard(req);
++        if (req.actor.type !== "agent") assertBoard(req);
+         const id = req.params.id;
+         const existing = await getAccessibleAgent(req, res, id);
+         if (!existing) {
+             return;
+         }
++        await assertCanControlAgentLifecycle(req, existing);
+         // Terminating an agent that is still awaiting approval is the agent-detail
+         // equivalent of rejecting the hire. When a linked hire approval is still
+         // open, delegate to approvalsSvc.reject(), which both resolves the approval
+@@ -4757,8 +4780,7 @@
+         const cancellation = await heartbeat.cancelInvocationsForAgents([id, ...invalidOrgChainDescendantIds], "Cancelled because the agent was terminated or became invalid-org-chain under a terminated manager");
+         await logActivity(db, {
+             companyId: agent.companyId,
+-            actorType: "user",
+-            actorId: req.actor.userId ?? "board",
++            ...getActorInfo(req),
+             action: "agent.terminated",
+             entityType: "agent",
+             entityId: agent.id,
+@@ -5803,15 +5825,30 @@
+         res.json(await runRedactions.redactForRun(run.companyId, run.id, redactCurrentUserValue({ ...decoratedRun, execution: await executionProjectionForRun(db, run.companyId, run.id), identityHistory: await listRunIdentityContexts(db, run.companyId, run.id), retryExhaustedReason, outputSilence: await heartbeat.buildRunOutputSilence(run) }, await getCurrentUserRedactionOptions())));
+     });
+     router.post("/heartbeat-runs/:runId/cancel", async (req, res) => {
+-        assertBoard(req);
++        if (req.actor.type !== "agent") assertBoard(req);
+         const runId = readHeartbeatRunId(req);
+         const existing = await getAccessibleResource(req, res, heartbeat.getRun(runId), "Heartbeat run not found");
+         if (!existing)
+             return;
+-        // Stamp the cancellation as operator-initiated (this route is board-only).
+-        // Recovery reads this to stand down instead of classifying the cancelled
+-        // run as agent stranding and re-waking the agent the operator just stopped.
+-        const run = await heartbeat.cancelRun(runId, "Cancelled by a board operator", {
++        if (req.actor.type === "agent") {
++            const target = await getAccessibleResource(req, res, svc.getById(existing.agentId), "Agent not found");
++            if (!target) return;
++            await assertCanControlAgentLifecycle(req, target);
++        }
++        const actor = getActorInfo(req);
++        // Server-generated cancellation attribution, never accepted from request data.
++        const isCeo = req.actor.type === "agent";
++        const run = await heartbeat.cancelRun(runId, isCeo ? "Cancelled by company CEO" : "Cancelled by a board operator", isCeo ? {
++            errorCode: "ceo_cancelled",
++            suppressImmediateRecovery: true,
++            resultJson: {
++                cancelledByActorType: "agent",
++                cancelledByAgentId: actor.agentId,
++                cancelledByRunId: actor.runId,
++                cancelledByKeyId: actor.agentApiKeyId,
++                ceoLifecycleCancellation: { runId: existing.id, companyId: existing.companyId },
++            },
++        } : {
+             resultJson: {
+                 cancelledByActorType: "user",
+                 cancelledByUserId: req.actor.userId ?? null,
+@@ -5820,8 +5857,7 @@
+         if (run) {
+             await logActivity(db, {
+                 companyId: run.companyId,
+-                actorType: "user",
+-                actorId: req.actor.userId ?? "board",
++                ...actor,
+                 action: "heartbeat.cancelled",
+                 entityType: "heartbeat_run",
+                 entityId: run.id,
+--- a/services/recovery/service.js
++++ b/services/recovery/service.js
+@@ -514,7 +514,12 @@
+         return true;
+     const result = parseObject(latestRun.resultJson);
+     return (result.cancelledByActorType === "user" ||
+-        result.cancelledByActorType === "board");
++        result.cancelledByActorType === "board" ||
++        (latestRun.errorCode === "ceo_cancelled" &&
++            result.cancelledByActorType === "agent" &&
++            typeof result.cancelledByAgentId === "string" && Boolean(result.cancelledByAgentId) &&
++            result.ceoLifecycleCancellation?.runId === latestRun.id &&
++            result.ceoLifecycleCancellation?.companyId === latestRun.companyId));
+ }
+ function isUnsuccessfulTerminalIssueRun(latestRun) {
+     return Boolean(latestRun &&
+--- a/services/acknowledged-native-stop.js
++++ b/services/acknowledged-native-stop.js
+@@ -13,9 +13,14 @@
+         typeof intent.intentAuditId === "string" && typeof intent.acknowledgementAuditId === "string";
+ }
+ export function hasAcknowledgedNativeStopIntent(run) {
+-    return run.resultJson?.cancelledByActorType === "user" &&
+-        typeof run.resultJson.cancelledByUserId === "string" && Boolean(run.resultJson.cancelledByUserId) &&
+-        hasAcknowledgedNativeRunStopReceipt(run);
++    const result = run.resultJson;
++    const boardStop = result?.cancelledByActorType === "user" &&
++        typeof result.cancelledByUserId === "string" && Boolean(result.cancelledByUserId);
++    const ceoStop = run.errorCode === "ceo_cancelled" && result?.cancelledByActorType === "agent" &&
++        typeof result.cancelledByAgentId === "string" && Boolean(result.cancelledByAgentId) &&
++        result.ceoLifecycleCancellation?.runId === run.id &&
++        result.ceoLifecycleCancellation?.companyId === run.companyId;
++    return (boardStop || ceoStop) && hasAcknowledgedNativeRunStopReceipt(run);
+ }
+ /** An intentional handoff retains task state and deferred work for its successor. */
+ export function hasAcknowledgedNativeReassignmentStopIntent(run) {

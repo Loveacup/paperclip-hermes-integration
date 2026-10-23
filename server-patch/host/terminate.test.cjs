@@ -1,0 +1,6 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const {harness}=require('./harness.cjs');
+const path='/agents/:id/terminate';
+test('CEO terminates approved agent with agent audit',async()=>{const h=harness(path);await h.invoke();assert.ok(h.effects.includes('terminate'));assert.ok(h.effects.includes('cancelInvocations'));assert.equal(h.effects.find(x=>x.log).log.actorType,'agent');});
+test('CEO cannot reject pending hire through terminate',async()=>{const h=harness(path,{target:{status:'pending_approval'}});await assert.rejects(h.invoke(),/Pending hire/);assert.deepEqual(h.effects,[]);});
+test('Board still rejects pending hire through terminate',async()=>{const h=harness(path,{actor:{type:'board',source:'local_implicit'},target:{status:'pending_approval'}});await h.invoke();assert.ok(h.effects.includes('rejectApproval'));assert.ok(!h.effects.includes('terminate'));assert.equal(h.effects.find(x=>x.log).log.actorType,'user');});
+for(const [name,opts] of Object.entries({ordinary:{caller:{role:'engineer'}},policy:{policy:{allowed:false,explanation:'denied'}},disabled:{caller:{status:'paused'}}}))test(`terminate denies ${name}`,async()=>{const h=harness(path,opts);await assert.rejects(h.invoke());assert.deepEqual(h.effects,[]);});

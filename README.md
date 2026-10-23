@@ -65,9 +65,21 @@ The shared-config entrypoint supplies the API, company and CEO target without du
 
 See the [CLI scope and standalone compatibility](ceo-control/README.md) and [CEO contract](docs/CEO-AGENTS.md). Installing a client neither grants permissions nor bypasses issue-bound run requirements or Board reconciliation.
 
+## Version-bound CEO server patch
+
+The optional [`server-patch/`](server-patch/README.md) package reproduces the reviewed lifecycle authorization changes from public Paperclip `2026.1005.0` sources. It keeps same-company active CEO checks, target-scoped configure grants, pending-hire protection and genuine cancellation/stop attribution; it is not a role-only permission bypass.
+
+```sh
+npm run test:server-patch
+# Check an explicitly prepared pristine source copy; no write without --apply.
+python3 -B server-patch/apply.py --root /absolute/pristine-server/package/dist
+```
+
+The package pins tarball integrity and all three target plus three source-dependency hashes. Defaults only check; drift, unsafe aliases and already-patched inputs refuse. Offline synthetic tests and the optional 41-case public-source AST/VM tier are separate from running-server acceptance. Applying to an installed service remains a separately approved operation; partial writes are never automatically rolled back or retried. See the [preparation and application guide](server-patch/README.md) and [upstream notices](THIRD_PARTY_NOTICES.md).
+
 ## Full-rebuild status
 
-The CEO CLI is included, alongside the bridge, injection plugin, public native-JSON adapter and segmented-QA components. **Complete parity with the existing deployment is still in progress**: the richer `omp_local` implementation, version/hash-gated server patch package and generic native activation/report-publication helpers are not yet part of this release. Do not substitute the existing thin adapter for a different executor contract or assume `setup` installs the whole stack.
+The CEO CLI and version/hash-gated server patch package are included, alongside the bridge, injection plugin, public native-JSON adapter and segmented-QA components. **Complete parity with the existing deployment is still in progress**: the richer `omp_local` implementation and generic native activation/report-publication helpers are not yet part of this release. Do not substitute the existing thin adapter for a different executor contract or assume `setup` installs the whole stack.
 
 The [rebuild plan and acceptance checklist (Chinese)](docs/REBUILD-PLAN.zh-CN.md) distinguish shipped components, isolated work and pending clean-target/live checks. Rebuilding means recreating the agreed capabilities from pinned public sources plus your configuration and external credentials—not copying another organization's IDs, history, cursors or uncertain-write state.
 

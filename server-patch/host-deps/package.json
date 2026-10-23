@@ -1,0 +1,8 @@
+{
+  "name": "ceo-portable-host-tests",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "acorn": "8.15.0"
+  }
+}

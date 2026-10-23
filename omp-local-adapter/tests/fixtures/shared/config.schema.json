@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object", "additionalProperties": false,
+  "required": ["version", "companyId", "ceoAgentId", "apiUrl", "authEnv", "bridge", "plugin", "omp", "host"],
+  "properties": {
+    "version": {"const": 1},
+    "companyId": {"$ref": "#/definitions/uuid"},
+    "ceoAgentId": {"$ref": "#/definitions/uuid"},
+    "apiUrl": {"type": "string", "pattern": "^https?://"},
+    "authEnv": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*(TOKEN|KEY|SECRET|IDENTITY)$"},
+    "bridge": {"type": "object", "additionalProperties": false, "required": ["statePath", "hermesAdapterRoot", "serviceLabel"], "properties": {
+      "statePath": {"$ref": "#/definitions/path"}, "hermesAdapterRoot": {"$ref": "#/definitions/path"}, "serviceLabel": {"type": "string", "pattern": "^[a-zA-Z0-9.-]+$"}
+    }},
+    "omp": {"type": "object", "additionalProperties": false, "required": ["command"], "properties": {"command": {"type": "string", "pattern": "^/"}}},
+    "host": {"type": "object", "additionalProperties": false, "required": ["hermesSource", "paperclipServerRoot"], "properties": {"hermesSource": {"$ref": "#/definitions/path"}, "paperclipServerRoot": {"$ref": "#/definitions/path"}}},
+    "plugin": {"type": "object", "additionalProperties": false,
+      "required": ["enabled", "ownerHome", "routingHome", "cursorDir", "instructionsPath", "readCommand", "accept_nonatomic_risk", "interval", "binding"],
+      "properties": {
+        "enabled": {"type": "boolean"}, "ownerHome": {"$ref": "#/definitions/path"}, "routingHome": {"$ref": "#/definitions/path"}, "cursorDir": {"$ref": "#/definitions/path"}, "instructionsPath": {"$ref": "#/definitions/path"},
+        "readCommand": {"type": "array", "minItems": 2, "items": {"type": "string", "minLength": 1}},
+        "accept_nonatomic_risk": {"type": "boolean"}, "interval": {"type": "number", "minimum": 1, "maximum": 60},
+        "binding": {"type": "object", "additionalProperties": false,
+          "required": ["mode", "profile", "platform", "chat_type", "chat_id", "user_id", "thread_id", "session_key", "session_id"],
+          "properties": {
+            "mode": {"enum": ["conversation", "topic", "session"]}, "profile": {"type": "string", "pattern": "^[a-zA-Z0-9_-]+$"}, "platform": {"const": "telegram"}, "chat_type": {"enum": ["dm", "group"]},
+            "chat_id": {"type": "string", "pattern": "^-?[0-9]+$"}, "user_id": {"type": "string", "pattern": "^[0-9]+$"}, "thread_id": {"type": "string", "pattern": "^[0-9]*$"}, "session_key": {"type": "string", "minLength": 1}, "session_id": {"type": "string", "pattern": "\\S"}
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "uuid": {"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"},
+    "path": {"type": "string", "minLength": 1, "pattern": "^[^\\u0000]+$"}
+  }
+}

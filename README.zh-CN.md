@@ -77,11 +77,23 @@ python3 -B server-patch/apply.py --root /absolute/pristine-server/package/dist
 
 补丁包固定 tarball 完整性、三个目标及三个只读依赖的源码哈希。默认只检查；漂移、不安全路径别名或已打补丁的输入均拒绝。离线合成测试、可选的 41 项公开源码 AST／VM 测试，与真实服务验收分开。对已安装服务应用补丁仍需单独明确授权；部分写入不自动回滚或重试。详见[准备与应用说明（英文）](server-patch/README.md)及[上游许可](THIRD_PARTY_NOTICES.md)。
 
-## 完整重建进度
+## rich OMP 执行与宿主生命周期归属
 
-CEO CLI、版本／哈希门控的服务端补丁包及参数化原生 QA 工作流已纳入仓库，与事件桥、注入插件和公开 native-JSON 适配器一起交付。**与现有部署完整对齐仍在进行**：更丰富的 `omp_local` 尚需验证宿主 runner 生命周期绑定后才能发布，完整干净目标验收也未完成。不要用现有薄适配器静默替代另一种执行契约，也不要把 `setup` 当作全栈安装器。
+`omp-local-adapter/` 提供 **`omp_local`**：保留原生 deadline／skills／模型／进度行为，安装时绑定真实宿主 SDK runner 与进程登记表。`omp-adapter/` 仍提供另一种 **`omp_native_json_local`** 契约，不静默切换原 worker 的实现。
 
-[重建计划与验收清单](docs/REBUILD-PLAN.zh-CN.md) 分开记录已交付组件、隔离实现及待完成的干净目标／真实验收。重建指从固定公开来源、目标配置和外部凭据恢复已约定能力，不是复制其他组织的身份、历史、cursor 或未知写意图。
+```sh
+npm run test:omp-local
+# 显式真实宿主登记表／停止层，只启动测试拥有的合成 Node 子进程：
+npm run test:omp-local -- --host /absolute/actual/node_modules/@paperclipai/server
+```
+
+根 `npm ci` 会安装 workspace，不依赖私有 helper 或作者的 node_modules。安装入口从可信共享配置读取 `omp.command` 和真实 server 包目录，核验 canonical SDK／consumer 身份；不兼容时拒绝，不回退独立本地 runner。详见 [rich 适配器的启动约束与边界（英文）](omp-local-adapter/README.md)。
+
+## 从源码重建，真实目标单独验收
+
+CEO CLI、固定基线服务端补丁、两种 OMP 契约、参数化原生 QA 激活／报告路径，现已与事件桥和注入插件一起纳入仓库。按[干净检出重建指南](docs/REBUILD.zh-CN.md)准备固定来源、配置、注册及验收。这补齐了已发现的源码打包缺口，**不等于新的生产目标已通过部署认证**；`setup` 仍是部署预览，不是全栈安装器。
+
+[验收台账](docs/REBUILD-PLAN.zh-CN.md) 区分源码／安装／本地组合与已授权的真实取消、依赖调度和 Telegram 投递。重建不是复制其他组织的身份、历史、凭据、cursor 或未知写意图。
 
 ## 分段 QA：分离机器执行与收口
 
@@ -174,6 +186,10 @@ Paperclip scheduling ──► OMP adapter ─────► Native OMP worker
 event-bridge/           Metadata reconciliation, authenticated reads, ownership, health
 tele-injection-plugin/ Owner-scoped configuration, exact routing, persistent cursors
 omp-adapter/           Native JSON worker adapter and synthetic protocol fixtures
+omp-local-adapter/     Rich omp_local adapter with host SDK lifecycle binding
+ceo-control/           Authenticated same-company management CLI
+server-patch/          Explicit-root, fixed-baseline CEO lifecycle patch
+segmented-qa/          Frozen execution and native activation/report workflow
 scripts/               Configuration validation, test tiers, deployment preview
 docs/                  English and Chinese setup, deployment, compatibility guides
 assets/                Original documentation artwork
@@ -216,6 +232,7 @@ npm run test:installed-omp -- integration.local.json
 | 我想做什么 | 简体中文 | English |
 |:--|:--|:--|
 | 让 AI 收集参数并校验配置 | [AI 配置指南](docs/AI_SETUP.zh-CN.md) | [AI setup](docs/AI_SETUP.md) |
+| 从干净检出重建，单独跟踪真实目标验收 | [重建指南](docs/REBUILD.zh-CN.md) | [Rebuild](docs/REBUILD.md) |
 | 安装插件、注册适配器并运行桥 | [配置与部署](docs/DEPLOYMENT.zh-CN.md) | [Deployment](docs/DEPLOYMENT.md) |
 | 判断支持范围、安全退回 | [兼容性与回滚](docs/COMPATIBILITY.zh-CN.md) | [Compatibility](docs/COMPATIBILITY.md) |
 

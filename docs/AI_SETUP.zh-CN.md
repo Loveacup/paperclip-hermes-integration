@@ -50,7 +50,8 @@
 | `plugin.instructionsPath` / `readCommand` | 经审阅的 CEO 约束与仓库只读入口；保留 `{repo}`/`{config}` 展开机制，命令 argv 中没有凭据 |
 | `plugin.enabled` / `accept_nonatomic_risk` / `interval` | 操作者明确选择；准备阶段 enabled=false。session 模式风险必须由用户接受，不为通过校验擅自置 true |
 | `omp.command` | 已安装 OMP 可执行文件的绝对路径；是安装权限，不来自任务文本 |
-| `host.*` | 仅显式宿主契约检查时使用的准确安装目录；未提供时保留为未配置，不能声称宿主通过 |
+| `host.paperclipServerRoot` | rich `omp_local` 必需：实际 server 包根目录，用于绑定其 SDK runner／registry，不只是测试路径。缺失或不兼容则拒绝激活，不用另一份 SDK 替代；见[重建指南](REBUILD.zh-CN.md) |
+| 其他 `host.*` | 显式宿主契约检查使用的准确安装目录；未提供时保持未配置，不声称检查通过 |
 
 **路由分支**：只需要 `session_key/session_id/platform/transport_profile/origin` 这些元信息，
 不读取会话正文、标题或凭据。`read_route` 的只读 SQL 与 scope 规则是实际实现。

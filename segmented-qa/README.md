@@ -14,10 +14,10 @@ python3 -B run_tests.py
 python3 -B run_tests.py --paperclip-packages /absolute/node_modules/@paperclipai
 ```
 
-* **Offline (default):** 56 stdlib-only tests; no Node.js, installed Paperclip,
+* **Offline (default):** 58 stdlib-only tests; no Node.js, installed Paperclip,
   author-specific paths, production credentials or Internet required. This includes
   non-SDK graph/composition cases and synthetic loopback HTTP transport checks.
-* **Host (explicit):** all 59 tests, including exactly three additional cases:
+* **Host (explicit):** all 61 tests, including exactly three additional cases:
   real shared `createIssueSchema` validation, real native process execution with
   harmless argv, and the complete machine graph through the real process factory
   to a synthetic loopback native endpoint. Requires Node.js on `PATH` and installed
@@ -151,7 +151,9 @@ fault probe, not a claim that a live provider crash was injected.
 
 ## Fixture and portability scope
 
-`fixtures/md-link-audit/` contains exactly five allowlisted original source files:
+The A09 absolute-outside fixture now wraps its destination in Markdown angle delimiters so it reaches the same outside-root guard when the test directory contains spaces. The scanner is unchanged; a separate regression retains rejection of unsupported bare-whitespace destinations. This is a portable fixture correction, not an expanded parser/security claim.
+
+`fixtures/md-link-audit/` contains five allowlisted files derived from the original reference source:
 `md_link_audit.py`, `qa/run_qa.py`, `qa/test_blackbox.py`, `qa/fixtures.py`, and
 `qa/guard/sitecustomize.py`. No historical runs, reports, credentials or private
 planning/evidence were copied. Source scanning found no personal information needing

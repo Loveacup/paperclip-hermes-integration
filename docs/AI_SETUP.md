@@ -57,7 +57,8 @@ Collect values by source, not by guessing:
 | `plugin.instructionsPath` / `readCommand` | Reviewed CEO constraints and the repository's read-only entry point; preserve `{repo}`/`{config}` expansion and keep credentials out of command argv |
 | `plugin.enabled` / `accept_nonatomic_risk` / `interval` | Explicit operator choices; enabled=false during preparation. The user must accept session-mode risk; do not set it to true merely to pass validation |
 | `omp.command` | The absolute path to the installed OMP executable; this is an installation-level authority, not a value derived from task text |
-| `host.*` | Exact installation directories used only for explicit host contract checks; leave unconfigured if not provided and do not claim host checks passed |
+| `host.paperclipServerRoot` | Required for rich `omp_local`: the actual server package root, used to bind its SDK runner/registry, not merely a test path. Missing or incompatible binding refuses activation; do not substitute another SDK copy. See [REBUILD](REBUILD.md). |
+| Other `host.*` | Exact installation directories for explicit host contract checks; leave unconfigured if not provided and do not claim checks passed |
 
 **Routing branch**: only `session_key/session_id/platform/transport_profile/origin` metadata is needed;
 do not read session bodies, titles, or credentials. The read-only SQL and scope rules in `read_route`

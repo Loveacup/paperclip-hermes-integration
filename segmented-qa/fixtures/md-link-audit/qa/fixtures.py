@@ -120,7 +120,7 @@ def build(case, base):
     elif case == 'A09':
         links([('[escape](../synthetic-outside/canary.md)', '../synthetic-outside/canary.md', 'outside_root'),
                ('[encoded](%2e%2e%2Fsynthetic-outside%2Fcanary.md)', '%2e%2e%2Fsynthetic-outside%2Fcanary.md', 'outside_root'),
-               ('[absolute](' + str(outside / 'canary.md') + ')', str(outside / 'canary.md'), 'outside_root', 'absolute_path_disallowed'),
+               ('[absolute](<' + str(outside / 'canary.md') + '>)', str(outside / 'canary.md'), 'outside_root', 'absolute_path_disallowed'),
                ('[fragment](../synthetic-outside/canary.md#title)', '../synthetic-outside/canary.md#title', 'outside_root'),
                ('[reentry](../input/source.md)', '../input/source.md', 'outside_root')])
     elif case == 'A10':

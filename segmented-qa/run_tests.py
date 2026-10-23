@@ -10,7 +10,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parent
-MODULES = ('test_staged_qa', 'test_native_finish', 'test_native_graph', 'test_composition', 'test_native_workflow', 'test_workflow_composition')
+MODULES = ('test_staged_qa', 'test_native_finish', 'test_native_graph', 'test_composition', 'test_native_workflow', 'test_workflow_composition', 'test_fixture_portability')
 HOST_CASES = frozenset({
     'test_native_graph.GraphTests.test_real_installed_shared_schema_accepts_without_stripping_fields',
     'test_native_graph.GraphTests.test_installed_process_execute_consumes_config_shape_without_model',

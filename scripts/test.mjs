@@ -11,7 +11,8 @@ const runs=[
   ['python3',['-B','-m','unittest','discover','-s','event-bridge','-p','test_*.py']],
   ['python3',['-B','-m','unittest','discover','-s','tele-injection-plugin','-p','test_*.py']],
   ['python3',['-B','segmented-qa/run_tests.py']],
-  ['python3',['-B','-m','unittest','discover','-s','server-patch','-p','test_offline.py']]
+  ['python3',['-B','-m','unittest','discover','-s','server-patch','-p','test_offline.py']],
+  [process.execPath,['omp-local-adapter/scripts/test.mjs']]
 ];
 let failed=false;
 for(const [command,args] of runs){const r=spawnSync(command,args,{cwd:root,env,stdio:'inherit'});if(r.error)console.error(r.error.message);if(r.status!==0)failed=true;}

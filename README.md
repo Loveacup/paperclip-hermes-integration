@@ -77,11 +77,23 @@ python3 -B server-patch/apply.py --root /absolute/pristine-server/package/dist
 
 The package pins tarball integrity and all three target plus three source-dependency hashes. Defaults only check; drift, unsafe aliases and already-patched inputs refuse. Offline synthetic tests and the optional 41-case public-source AST/VM tier are separate from running-server acceptance. Applying to an installed service remains a separately approved operation; partial writes are never automatically rolled back or retried. See the [preparation and application guide](server-patch/README.md) and [upstream notices](THIRD_PARTY_NOTICES.md).
 
-## Full-rebuild status
+## Rich OMP execution with host lifecycle ownership
 
-The CEO CLI, version/hash-gated server patch package and parameterized native QA workflow are included, alongside the bridge, injection plugin and public native-JSON adapter. **Complete parity with the existing deployment is still in progress**: the richer `omp_local` implementation still needs its host-runner lifecycle binding verified before release, and complete clean-target acceptance remains outstanding. Do not substitute the existing thin adapter for a different executor contract or assume `setup` installs the whole stack.
+`omp-local-adapter/` provides **`omp_local`**: native deadline/skills/model/progress behavior, with the actual host SDK runner and process registry bound at installation. `omp-adapter/` still provides the distinct **`omp_native_json_local`** contract. Do not switch workers between these implementations silently.
 
-The [rebuild plan and acceptance checklist (Chinese)](docs/REBUILD-PLAN.zh-CN.md) distinguish shipped components, isolated work and pending clean-target/live checks. Rebuilding means recreating the agreed capabilities from pinned public sources plus your configuration and external credentials—not copying another organization's IDs, history, cursors or uncertain-write state.
+```sh
+npm run test:omp-local
+# Explicit real-host registry/stop tier, using owned synthetic Node children:
+npm run test:omp-local -- --host /absolute/actual/node_modules/@paperclipai/server
+```
+
+Root `npm ci` installs the workspace; no private helper or author node_modules is needed. The installation entry reads `omp.command` and the actual server package root from trusted shared configuration, validates canonical SDK/consumer identity, and fails closed instead of falling back to a separate local runner. See the [rich adapter's supported bootstrap and limits](omp-local-adapter/README.md).
+
+## Rebuild from source; accept the live target separately
+
+The CEO CLI, fixed-baseline server patch, both OMP contracts and parameterized native QA activation/report path are now included with the bridge and injection plugin. Follow the [clean-checkout rebuild runbook](docs/REBUILD.md) for pinned inputs, configuration, registration and acceptance. This closes the identified source-packaging gaps; it does **not** certify a newly deployed production target. `setup` remains a deployment preview, not a whole-stack installer.
+
+The [acceptance ledger (Chinese)](docs/REBUILD-PLAN.zh-CN.md) separates source/install/local composition from authorized live cancellation, dependency scheduling and Telegram delivery. Rebuilding does not mean copying another organization's IDs, history, credentials, cursors or uncertain-write state.
 
 ## Segmented QA: keep execution separate from closeout
 
@@ -178,6 +190,10 @@ Paperclip scheduling ──► OMP adapter ─────► Native OMP worker
 event-bridge/           Metadata reconciliation, authenticated reads, ownership, health
 tele-injection-plugin/ Owner-scoped configuration, exact routing, persistent cursors
 omp-adapter/           Native JSON worker adapter and synthetic protocol fixtures
+omp-local-adapter/     Rich omp_local adapter with host SDK lifecycle binding
+ceo-control/           Authenticated same-company management CLI
+server-patch/          Explicit-root, fixed-baseline CEO lifecycle patch
+segmented-qa/          Frozen execution and native activation/report workflow
 scripts/               Configuration validation, test tiers, deployment preview
 docs/                  English and Chinese setup, deployment, compatibility guides
 assets/                Original documentation artwork
@@ -220,6 +236,7 @@ Missing or incompatible hosts fail explicitly instead of silently skipping. The 
 | I want to… | English | 简体中文 |
 |:--|:--|:--|
 | Have an AI discover and validate configuration | [AI setup](docs/AI_SETUP.md) | [AI 配置指南](docs/AI_SETUP.zh-CN.md) |
+| Rebuild from a clean checkout and track live acceptance separately | [Rebuild](docs/REBUILD.md) | [重建指南](docs/REBUILD.zh-CN.md) |
 | Install the plugin, register the adapter, and operate the bridge | [Deployment](docs/DEPLOYMENT.md) | [配置与部署](docs/DEPLOYMENT.zh-CN.md) |
 | Understand support boundaries and roll back safely | [Compatibility](docs/COMPATIBILITY.md) | [兼容性与回滚](docs/COMPATIBILITY.zh-CN.md) |
 

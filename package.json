@@ -4,6 +4,7 @@
   "private": true,
   "license": "MIT",
   "type": "module",
+  "workspaces": ["omp-local-adapter"],
   "engines": {"node": ">=24.11.0"},
   "scripts": {
     "test": "node scripts/test.mjs",
@@ -11,6 +12,7 @@
     "test:host": "node scripts/host-tests.mjs hermes",
     "test:segmented-qa": "python3 -B segmented-qa/run_tests.py",
     "test:server-patch": "python3 -B -m unittest discover -s server-patch -p test_offline.py",
+    "test:omp-local": "node omp-local-adapter/scripts/test.mjs",
     "test:server": "node scripts/host-tests.mjs server",
     "test:installed-omp": "node scripts/host-tests.mjs omp",
     "config:check": "node scripts/config.mjs",

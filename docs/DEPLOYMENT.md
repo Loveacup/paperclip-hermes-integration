@@ -35,7 +35,8 @@ root validator. `node` must be on the gateway's and service's PATH.
 | `plugin.readCommand` | Read-only command argv template; `{repo}` and `{config}` are expanded and shell-quoted automatically |
 | `plugin.enabled` | Set to true only after confirming the target, authorization, and new-baseline policy |
 | `omp.command` | **Installation-level** absolute OMP path; task config.command/prefixArgs are not accepted |
-| `host.*` | Source/package directories for explicit host contract tests, not dependencies of the default tests |
+| `host.hermesSource` | Explicit Hermes source root for optional host contract tests |
+| `host.paperclipServerRoot` | Actual server package directory (package.json plus dist); optional server tests and required rich `omp_local` installation binding, not a default offline-test dependency |
 
 Hermes configuration stores only a `config_path` pointer; its owner scope is unaffected by the current
 session's ambient profile. The JSON is a trusted deployer-controlled file, not editable by task content.
@@ -75,6 +76,15 @@ only report the actual resolved value, without claiming strict matching.
    administrator identity; **do not use the bridge's CEO credentials as a substitute for administrator
    credentials**. Cloud-hosted instances may prohibit this operation. This project does not call this
    API automatically. Select `omp_native_json_local` for workers and set cwd, optional model, and permission.
+
+   For the rich implementation, use local path `$PWD/omp-local-adapter` in that same administrator
+   interface/API and select `omp_local` instead. Its `host.paperclipServerRoot` must identify this
+   exact server package, not an outer checkout or another same-version installation. It binds the
+   actual host runner/registry at loading and refuses missing/incompatible hosts; use an ordinary
+   unbundled Node ESM bootstrap without loader/preload/custom-condition/symlink-preserving overrides.
+   Keep the whole repository layout. Use its supported cwd/model/thinking/approvalMode fields rather
+   than assuming the thin adapter's permission contract. Do not silently replace existing workers.
+   See [rich adapter boundaries](../omp-local-adapter/README.md) and the [rebuild runbook](REBUILD.md).
 5. Configure the CEO's native Hermes adapter with a promptTemplate containing `{{wakeReason}}`, while
    preserving existing management constraints. The default template in the verified version discards
    wakeReason, which causes the bridge to block delivery. The bridge checks both new-session and

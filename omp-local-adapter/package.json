@@ -1,0 +1,14 @@
+{
+  "name": "omp-local-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portable rich omp_local adapter; native Paperclip runner owns execution lifecycle.",
+  "type": "module",
+  "main": "./entry.mjs",
+  "exports": {".": {"import": "./entry.mjs"}},
+  "files": ["entry.mjs", "host-binding.mjs", "index.mjs", "skills.mjs", "runtime-skills.mjs", "output-parser.mjs", "omp-baseline.mjs", "tests", "scripts", "README.md"],
+  "scripts": {"test": "node scripts/test.mjs", "check": "node scripts/check.mjs"},
+  "dependencies": {"@paperclipai/adapter-utils": "2026.1005.0"},
+  "devDependencies": {"ajv": "8.20.0"},
+  "engines": {"node": ">=24.11.0"}
+}

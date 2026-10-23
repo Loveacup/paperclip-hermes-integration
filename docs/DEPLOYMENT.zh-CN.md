@@ -33,7 +33,8 @@ npm run config:check -- integration.local.json
 | `plugin.readCommand` | 只读命令 argv 模板；`{repo}` 与 `{config}` 自动展开并 shell-quote |
 | `plugin.enabled` | 确认目标、授权及新基线策略后才改为 true |
 | `omp.command` | **安装级** OMP 绝对路径；不接受任务 config.command/prefixArgs |
-| `host.*` | 显式宿主契约测试的源码/包目录，不是默认测试依赖 |
+| `host.hermesSource` | 可选 Hermes 宿主契约测试的显式源码目录 |
+| `host.paperclipServerRoot` | 实际 server 包目录（package.json 与 dist）；用于可选 server 测试及 rich `omp_local` 必需的安装绑定，不是默认离线测试依赖 |
 
 Hermes 配置仅保存一个 `config_path` 指针；其 owner scope 不受当前会话的 ambient profile
 影响。JSON 是部署者可信文件，不接受任务内容修改。更改后重新加载插件；运行中检测到配置
@@ -65,6 +66,13 @@ Hermes 配置仅保存一个 `config_path` 指针；其 owner scope 不受当前
    `{"packageName":"/absolute/path/to/repository/omp-adapter","isLocalPath":true}`；认证须使用实例管理身份，
    **不要使用桥的 CEO 凭据冒充管理员**。云托管实例可能禁止此操作。本项目不自动调用该 API。
    给 worker 选择 `omp_native_json_local`，设置 cwd、可选 model 与 permission。
+
+   rich 实现使用同一管理员入口/API，改为本地 `$PWD/omp-local-adapter`，worker 选择 `omp_local`。
+   `host.paperclipServerRoot` 必须是本次实际 server 包，不能是外层 checkout 或另一同版本实例。
+   加载时绑定真实宿主 runner／登记表，缺失或不兼容拒绝；使用普通未打包 Node ESM，不使用
+   loader/preload/custom-condition／保留 symlink 的覆盖模式。保持完整仓库布局，配置其支持的
+   cwd/model/thinking/approvalMode，不照搬薄适配器的 permission 契约，不静默替换原 worker。
+   详见 [rich 边界（英文）](../omp-local-adapter/README.md)和[重建指南](REBUILD.zh-CN.md)。
 5. 给 CEO 原生 Hermes adapter 配置包含 `{{wakeReason}}` 的 promptTemplate，保留原有管理约束。
    默认模板在已核验版本会丢弃 wakeReason，桥对此阻断投递。桥会验证新会话和 resumed 会话路径。
 6. 凭据由你的受控服务环境提供（变量名称见 `authEnv`），不要写进 JSON、argv、仓库或提示。

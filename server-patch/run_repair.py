@@ -28,7 +28,9 @@ def main():
     args = parser.parse_args()
     env = {k: os.environ[k] for k in ('PATH', 'HOME', 'TMPDIR', 'LANG') if k in os.environ}
     env['PYTHONDONTWRITEBYTECODE'] = '1'
-    with tempfile.TemporaryDirectory(prefix='repair-contract-') as tmp:
+    # Own the fixture under the canonical package directory, not a platform TMPDIR
+    # alias. Never canonicalize an operator-supplied --server-root past its guard.
+    with tempfile.TemporaryDirectory(prefix='repair-contract-', dir=HERE) as tmp:
         work = Path(tmp)
         (work / 'package.json').write_text('{"type":"module"}')
         sdk = ROOT / 'node_modules/@paperclipai/adapter-utils'

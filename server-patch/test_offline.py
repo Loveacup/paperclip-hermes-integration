@@ -9,6 +9,20 @@ import unittest
 HERE = Path(__file__).resolve().parent
 
 class SafetyTests(unittest.TestCase):
+    def test_sdk_fixture_does_not_follow_ambient_temp_alias(self):
+        import os
+        with tempfile.TemporaryDirectory(dir=HERE) as temporary:
+            directory = Path(temporary)
+            real = directory / 'real'; real.mkdir()
+            alias = directory / 'alias'; alias.symlink_to(real, target_is_directory=True)
+            env = {k: os.environ[k] for k in ('PATH', 'HOME', 'LANG') if k in os.environ}
+            env.update(TMPDIR=str(alias), TEMP=str(alias), TMP=str(alias))
+            result = subprocess.run(['python3', '-B', str(HERE / 'run_repair.py')],
+                                    env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('# pass 8', result.stdout)
+            self.assertEqual(list(real.iterdir()), [])
+
     def fixture(self):
         import hashlib
         self.tmp = tempfile.TemporaryDirectory(dir=HERE)

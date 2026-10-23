@@ -10,7 +10,8 @@ model/API run, a complete provider goal workflow or every cancellation race.
 Publishing this repository does not deploy it. Private manifests, activation
 journals, identities and logs are deliberately excluded.
 
-Before publication, the portable default suite passed 465 tests; the explicit
+The portable default suite includes 466 tests (including the macOS temporary-path
+alias regression added after the first CI failure); the explicit
 repair host tier passed SDK 8 plus cancellation 114, separately from the existing
 41-case lifecycle tier. These are local pre-publication results, not a claim about
 any later commit or CI. Use the exact commit's Actions jobs and release test record
@@ -105,7 +106,8 @@ OMP 共 3。11 个补丁生成输出保持冻结产品字节；OMP 保留便携�
 超时观测字段。固定版本/完整性拒绝、协议/模型/文本上限、单 writer 与 UNKNOWN
 对账保护不变，不发布私人证据或整包依赖。
 
-默认 465 项、显式 SDK 8 项及取消链路 114 项为发布前本地实测，不冒称远端提交
+默认套件 466 项（含首次 macOS CI 暴露的临时路径别名回归）；显式 SDK 8 项及
+取消链路 114 项为本地实测，不冒称远端提交
 或 CI 已通过。推送后须从精确远端提交、含空格新目录及独立 HOME/TMPDIR 重跑，
 并核对该 SHA 的 Ubuntu/macOS jobs。使用上方命令可复现。
 

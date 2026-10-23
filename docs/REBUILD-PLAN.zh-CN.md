@@ -60,14 +60,16 @@ CEO CLI 已按逐字节部署基线移入本地仓库，并增加共享配置入
 
 CEO 便携切片已发布为 `b606f86a94990dbfb354f9c29f5adfe2ff71d644`，独立发布审查 approved_scoped；精确提交的双平台 CI `39895592638` 各 167 项通过。中英 README 与 GitHub issue 已按该有界范围更新，未将完整重建标为完成。
 
-权限补丁包已独立 `spec_pass` 与 `approved_scoped`，父方纳入本地仓库后复跑 16 项离线与 41 项公开源码 host tier 均通过；许可与发布白名单闭合，不含私人证据、缓存或完整上游源码。
+权限补丁包已独立 `spec_pass` 与 `approved_scoped`，发布为 `aa2b5788c131479517be1f25e651e44002080423`；双平台 CI `39898379417` 各 183 项通过，父方额外复跑 41 项公开源码 host tier 通过。许可与发布白名单闭合，不含私人证据、缓存或完整上游源码。
 
-完整 `omp_local` 与参数化原生 QA 的前轮规格阻断已完成定点修复，修订版独立 `spec_pass`，分别复跑 230 与 22 项通过，尚未合入主仓库。已修复的前轮问题：
+完整 `omp_local` 与参数化原生 QA 的前轮规格阻断已完成定点修复，修订版独立 `spec_pass`，分别复跑 230 与 22 项通过。原生 QA 进一步通过质量审查并已纳入本地仓库；OMP 尚未入库。已修复的前轮问题：
 
 - OMP：新增可信安装配置入口固定注入 `ompCommand`，通过固定宿主 `validateAdapterModule()` 无参路径验证；真实运行捕获标识已替换为独立合成 fixture，保留原断言。
 - 原生 QA：拒绝 fresh backlog 上遗留的非批准 adapter overrides；把每一阶段已验证的 expected issue 固定到再次 native finish 的验证边界，防止绑定变化后关闭其他任务；拒绝 paused/terminated 等非活跃 CEO。另修正测试显式导入 `importlib.util`，不依赖 runner 偶然预加载。
 
-当前原生 QA 进入独立质量审查；OMP 进入生命周期质量／组合审查。父方实读固定宿主与 SDK 并实际 import 核对，外置候选 SDK 的 `runningProcesses` 与宿主 Map 不是同一实例。此观测尚不等于已复现取消失败，需要追踪真实取消通路，确认宿主能收容子进程；不能仅凭工厂加载成功宣布生命周期保持。不得用全局 Map monkeypatch 或新监督器掩盖安装边界。
+原生 QA 质量审查 `approved_scoped`。独审用真实模块、真实 23 项参考 QA 和合成 loopback API 完成了 activation→prepare→machine→publish。父方把该组合验证移植成仓库回归，修正了测试夹具漏复制 guard 和把 execution_count 错读到 receipt 的问题（计数实际在 admission），未改产品实现。整合后根测试 206 项通过，QA 默认 56 项、显式宿主 59 项通过。该组合不是 live server 调度或业务验收。
+
+OMP 生命周期组合已确认阻断：外置 SDK 与宿主 SDK 虽同版本同源码，模块局部 `runningProcesses` 仍是不同实例。独立 synthetic 子进程实验确认候选 SDK 启动的进程被宿主 lookup/stop 分支漏过，宿主 SDK 对照可停止；两个自有进程均由测试收尾。未执行完整控制面 cancel，不冒称全 API E2E 复现。正在最后一轮有界修复：安装级绑定宿主 runner／SDK并证明宿主可见、可停止；不得全局 Map monkeypatch、另建监督器或修改现役安装。若再次独审仍有阻断，升级裁决而非无限返工。
 
 前一版通过的测试不能作为修订版批准，缺陷存在性反例必须转成安全行为回归。源始终按 writer／审查阶段冻结。
 

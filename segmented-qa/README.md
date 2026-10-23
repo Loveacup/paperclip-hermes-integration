@@ -14,10 +14,10 @@ python3 -B run_tests.py
 python3 -B run_tests.py --paperclip-packages /absolute/node_modules/@paperclipai
 ```
 
-* **Offline (default):** 33 stdlib-only tests; no Node.js, installed Paperclip,
+* **Offline (default):** 56 stdlib-only tests; no Node.js, installed Paperclip,
   author-specific paths, production credentials or Internet required. This includes
   non-SDK graph/composition cases and synthetic loopback HTTP transport checks.
-* **Host (explicit):** all 36 tests, including exactly three additional cases:
+* **Host (explicit):** all 59 tests, including exactly three additional cases:
   real shared `createIssueSchema` validation, real native process execution with
   harmless argv, and the complete machine graph through the real process factory
   to a synthetic loopback native endpoint. Requires Node.js on `PATH` and installed
@@ -69,7 +69,7 @@ agents, choose models, deploy services or schedule runs automatically. Each nati
 task has one assigned owner; machine evidence has one admitted executor. Do not
 introduce a second owner or clear admission records to force a rerun.
 
-Only explicit `machine --native-finish` or `closeout --native-finish` requests native
+Within `staged_qa.py`, only explicit `machine --native-finish` or `closeout --native-finish` requests native
 publication using the current task's runtime environment. Native identity/run/task
 checks precede a single status/comment write and exact readback. An unknown write
 outcome is **not retried**: retain its intent and reconcile manually. Local passing
@@ -105,6 +105,20 @@ instructions separately. This option does not authorize another task's completio
 
 ## Native activation and verified scope
 
+For the parameterized native workflow, use [NATIVE-WORKFLOW.md](NATIVE-WORKFLOW.md).
+`native_workflow.py plan --plan /absolute/operator-plan.json` is pure payload
+generation. Its `prepare`, `activate` and `publish` operations additionally require
+`--execute` and the expected genuine native run context. They replace private
+instance-bound preparation, reverse-order dispatch and document-publication scripts;
+they do not create projects, actors or issues. The publish path verifies the formal
+document before invoking native finish. Existing task overrides, binding drift and
+inactive CEO contexts are rejected, not silently rewritten or retried.
+
+The default suite includes a real-module loopback composition test that executes
+the graph-generated commands and the bundled 23-check product QA. It proves that
+local composition against a synthetic control plane, not live server scheduling
+or provider cancellation. The following lower-level assembly remains available.
+
 Keep Paperclip as the only task/run owner. Create the three issues as unassigned
 backlog work first, retain the server-issued IDs, and configure blocked successors
 before admitting prepare. Use genuine native CEO context for management when the
@@ -117,7 +131,7 @@ source-specific prepare command or create/admit actors for you. Machine executes
 once. Let Paperclip resolve the blocker edges; a manual wake does not certify
 native dependency continuation.
 
-For a formal report stored in Paperclip, run `closeout` **without** `--native-finish`
+When assembling the lower-level modules manually for a formal report stored in Paperclip, run `closeout` **without** `--native-finish`
 first, then have the assigned native owner publish the generated `REPORT.md` using
 the supported issue-document API and verify the exact stored body. Preserve a
 write-ahead intent and do not retry unknown publication effects. Only after that

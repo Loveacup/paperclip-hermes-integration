@@ -79,7 +79,7 @@ The package pins tarball integrity and all three target plus three source-depend
 
 ## Full-rebuild status
 
-The CEO CLI and version/hash-gated server patch package are included, alongside the bridge, injection plugin, public native-JSON adapter and segmented-QA components. **Complete parity with the existing deployment is still in progress**: the richer `omp_local` implementation and generic native activation/report-publication helpers are not yet part of this release. Do not substitute the existing thin adapter for a different executor contract or assume `setup` installs the whole stack.
+The CEO CLI, version/hash-gated server patch package and parameterized native QA workflow are included, alongside the bridge, injection plugin and public native-JSON adapter. **Complete parity with the existing deployment is still in progress**: the richer `omp_local` implementation still needs its host-runner lifecycle binding verified before release, and complete clean-target acceptance remains outstanding. Do not substitute the existing thin adapter for a different executor contract or assume `setup` installs the whole stack.
 
 The [rebuild plan and acceptance checklist (Chinese)](docs/REBUILD-PLAN.zh-CN.md) distinguish shipped components, isolated work and pending clean-target/live checks. Rebuilding means recreating the agreed capabilities from pinned public sources plus your configuration and external credentials—not copying another organization's IDs, history, cursors or uncertain-write state.
 
@@ -96,6 +96,8 @@ npm run test:segmented-qa -- --paperclip-packages /absolute/node_modules/@paperc
 The bundled reference product runs 23 black-box checks. Default component tests are portable and use only local fixtures; host tests combine the real process factory with a **synthetic localhost endpoint**, not live Paperclip authorization. A separate operator-approved live sample has exercised native assignment, automatic blocker-resolved continuation and exact report-document readback. This bounded sample is not a blanket recovery or Telegram certification; manual product acceptance remains separate.
 
 [Component commands and activation boundaries →](segmented-qa/README.md). The graph builder does not create tasks, agents or a second scheduler. Activation needs admitted OMP/process actors and a reachable permitted API origin; the native publisher accepts HTTPS or loopback HTTP by default. Remote plaintext HTTP requires explicit administrator approval and a single exact origin via `SEGMENTED_QA_ALLOWED_HTTP_ORIGIN`; no wildcard or broad enable flag is accepted. Installing these scripts does not itself activate a native task chain or certify automatic wakeup.
+
+The [parameterized native workflow](segmented-qa/NATIVE-WORKFLOW.md) provides pure plan generation plus explicitly authorized prepare, reverse-order activation and document-publication operations. It rejects pre-existing task overrides and pins each expected issue through final completion. Its committed loopback composition test executes the generated commands and actual reference QA; it is not live scheduling or provider-cancellation certification.
 
 <a id="ai-setup"></a>
 ## 🤖 Let your AI configure it

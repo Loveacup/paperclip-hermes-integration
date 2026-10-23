@@ -79,7 +79,7 @@ python3 -B server-patch/apply.py --root /absolute/pristine-server/package/dist
 
 ## 完整重建进度
 
-CEO CLI 和版本／哈希门控的服务端补丁包已纳入仓库，与事件桥、注入插件、公开 native-JSON 适配器和分段 QA 组件一起交付。**与现有部署完整对齐仍在进行**：更丰富的 `omp_local`，以及通用原生激活和正式报告发布 helper，尚未包含在本次发布中。不要用现有薄适配器静默替代另一种执行契约，也不要把 `setup` 当作全栈安装器。
+CEO CLI、版本／哈希门控的服务端补丁包及参数化原生 QA 工作流已纳入仓库，与事件桥、注入插件和公开 native-JSON 适配器一起交付。**与现有部署完整对齐仍在进行**：更丰富的 `omp_local` 尚需验证宿主 runner 生命周期绑定后才能发布，完整干净目标验收也未完成。不要用现有薄适配器静默替代另一种执行契约，也不要把 `setup` 当作全栈安装器。
 
 [重建计划与验收清单](docs/REBUILD-PLAN.zh-CN.md) 分开记录已交付组件、隔离实现及待完成的干净目标／真实验收。重建指从固定公开来源、目标配置和外部凭据恢复已约定能力，不是复制其他组织的身份、历史、cursor 或未知写意图。
 
@@ -96,6 +96,8 @@ npm run test:segmented-qa -- --paperclip-packages /absolute/node_modules/@paperc
 内置参考产品实际运行 23 项 black-box 检查。组件默认测试可独立复现，只用本地 fixture；宿主测试将真实 process factory 接到**合成 localhost 端点**，不代表真实 Paperclip 授权通过。另一次经操作者批准的真实样本已跑通原生派工、阻塞解除后的自动接续及正式报告文档的精确读回；这不是任意故障恢复或 Telegram 全链路认证，产品人工验收仍单独保留。
 
 [组件命令与启用边界（英文）→](segmented-qa/README.md)。图构造器不创建任务、执行者或第二调度器。启用前需要准入 OMP／process 执行者及可达且允许的 API origin；原生发布器默认仅接受 HTTPS 或 loopback HTTP。远端明文 HTTP 必须经管理员明确批准，并用 `SEGMENTED_QA_ALLOWED_HTTP_ORIGIN` 指定单个精确 origin；不接受通配符或宽泛开关。安装脚本本身不启用原生任务链，也不证明依赖自动唤醒已通过。
+
+[参数化原生工作流（英文）](segmented-qa/NATIVE-WORKFLOW.md) 已提供纯计划生成，以及需明确执行授权的准备、逆序激活和文档发布入口。它拒绝任务已有 overrides，并将预期 issue 固定到最终完成边界。仓库中的 loopback 组合测试会实际执行生成命令与参考 QA，但不代表真实调度或 provider 取消已通过。
 
 <a id="ai-setup"></a>
 ## 🤖 让 AI 帮你配置

@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {directory,makeCore,connection,once,wires,result,identity} from './durable-fixture.mjs';
+test('targeted first wire consumes durable eligibility; same command reconnect and reloaded owner never resend',()=>{
+ const dir=directory(), core=makeCore(dir),frames=[];
+ const c=connection(core,f=>frames.push(f));
+ const cmd=core.queueCommand('session.goal.clear',{threadId:'thread'},'stop',true,once);
+ assert.equal(wires(frames).length,1);
+ assert.equal(JSON.parse(readFileSync(core.store.path)).commands[0].delivery?.attemptConsumed,true);
+ core.queueCommand('session.goal.clear',{threadId:'thread'},'stop',true,once);
+ core._welcome(c,null);
+ const reopened=makeCore(dir),c2=connection(reopened,f=>frames.push(f));
+ reopened._welcome(c2,null);reopened._sendNextCommand(c2);
+ assert.equal(wires(frames).length,1);
+ assert.equal(reopened.getCommand('stop').status,'pending','unknown retains ownership fence');
+ assert.throws(()=>reopened.rotateRunIdentity({...identity,runId:'successor'},{}));
+ assert.equal(wires(frames)[0].delivery,undefined,'internal policy never enters provider command');
+ result(reopened,c2,cmd);reopened._welcome(c2,null);
+ assert.equal(wires(frames).length,1,'late actual result is not a replay trigger');
+});

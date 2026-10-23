@@ -4,6 +4,15 @@ Three exact edits against public `@paperclipai/server@2026.1005.0` dist sources.
 
 ## Default offline tier
 
+Additional fixed-baseline bundles are selected with `--bundle cancellation` (ten
+server targets) or `--bundle sdk` (shared SDK UTF-8 decoder). The default remains
+the original lifecycle bundle. See [repair mapping and complete commands](../docs/REPAIR-RELEASE.md).
+They reuse this same fail-closed generator. Apply lifecycle before cancellation
+when assembling both, because lifecycle reads pristine heartbeat as a dependency.
+`python3 -B run_repair.py` tests the generated SDK in a disposable copy;
+`--server-root /operator/work/server/package/dist` adds real generated cancellation
+contracts. Neither command modifies an installed service.
+
 Requires Python 3.9+ on POSIX/macOS (stdlib only). From this directory:
 
 ```sh

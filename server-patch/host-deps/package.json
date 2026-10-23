@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "acorn": "8.15.0"
+    "@paperclipai/shared": "2026.1005.0",
+    "acorn": "8.15.0",
+    "express": "5.1.0"
   }
 }

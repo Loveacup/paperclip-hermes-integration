@@ -7,7 +7,8 @@ fs.mkdirSync(path.join(root,'.local'),{recursive:true});
 const env=Object.fromEntries(['PATH','HOME','TMPDIR','LANG','LC_ALL'].filter(k=>process.env[k]).map(k=>[k,process.env[k]]));
 Object.assign(env,{NODE_ENV:'production',PYTHONDONTWRITEBYTECODE:'1',PAPERCLIP_INTEGRATION_CONFIG:path.join(root,'integration.example.json')});
 const runs=[
-  [process.execPath,['--test','event-bridge/bridge.test.mjs','event-bridge/read.test.mjs','omp-adapter/adapter.test.mjs','omp-adapter/native-contract.test.mjs','scripts/config.test.mjs','scripts/ceo.test.mjs','ceo-control/ceo.test.mjs']],
+  [process.execPath,['--test','event-bridge/bridge.test.mjs','event-bridge/read.test.mjs','omp-adapter/adapter.test.mjs','omp-adapter/native-contract.test.mjs','omp-adapter/repair.test.mjs','scripts/config.test.mjs','scripts/ceo.test.mjs','ceo-control/ceo.test.mjs']],
+  ['python3',['-B','server-patch/run_repair.py']],
   ['python3',['-B','-m','unittest','discover','-s','event-bridge','-p','test_*.py']],
   ['python3',['-B','-m','unittest','discover','-s','tele-injection-plugin','-p','test_*.py']],
   ['python3',['-B','segmented-qa/run_tests.py']],

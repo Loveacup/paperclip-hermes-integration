@@ -1312,7 +1312,7 @@ export function createServerAdapter(deps = {}) {
       // Still before dispatch: any throw here must also leave bootstrap evidence.
       args = [...buildArgs(cfg), ...prepared.args];
       streamRedactor = createStreamRedactor(secrets, (stream, chunk) => ctx.onLog(stream, chunk));
-      streamParser = createOmpOutputParser({ maxLineBytes: DEFAULT_MAX_LINE_BYTES, maxEvents: DEFAULT_MAX_EVENTS });
+      streamParser = createOmpOutputParser({ maxEvents: DEFAULT_MAX_EVENTS });
       // S2: ctx.onEvent is read exactly once, before dispatch, so a throwing getter or
       // a non-callable hook is a bootstrap refusal; absent means no progress forwarding.
       const onEvent = ctx.onEvent;

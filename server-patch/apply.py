@@ -63,12 +63,14 @@ def read_safe(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', required=True)
+    parser.add_argument('--bundle', choices=['lifecycle', 'cancellation', 'sdk'], default='lifecycle')
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--preview', action='store_true')
     args = parser.parse_args()
     root = safe_path(args.root)
-    manifest = json.loads((HERE / 'manifest.json').read_text())
-    baseline = json.loads((HERE / 'source-baseline.json').read_text())
+    bundle = HERE if args.bundle == 'lifecycle' else HERE / args.bundle
+    manifest = json.loads((bundle / 'manifest.json').read_text())
+    baseline = json.loads((bundle / 'source-baseline.json').read_text())
     pending, snapshots = [], {}
     for item in baseline['files']:
         path = target_path(root, item['path'])

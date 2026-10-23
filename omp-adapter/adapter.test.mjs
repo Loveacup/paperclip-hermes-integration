@@ -245,7 +245,7 @@ test('observability: no terminal hang has no fabricated summary or publication',
   assert.equal(dispatches,1);
   assert.equal(result.errorCode,'omp_native_timeout');
   assert.equal(result.summary,'');
-  assert.deepEqual(logs,[]);
+  assert.deepEqual(logs.map(x=>JSON.parse(x)),[{kind:'omp_native_progress',eventType:'agent_start',eventCount:1,typeCount:1,maxLineBytes:22}]);
   assert.equal(result.resultJson.executionEvidence.timeoutFired,true);
   assert.deepEqual(result.resultJson.outputEvidence,{trustedNativeTerminal:false,summaryPublication:'not_attempted'});
 });

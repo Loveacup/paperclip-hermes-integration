@@ -24,6 +24,16 @@
 > [!NOTE]
 > **先在本地验证，再明确启用。** 快速开始只安装依赖、运行合成离线测试，不部署服务、不调用真实模型、不发送消息。
 
+## 当前修复状态
+
+本次源码包含有界 8MiB OMP 终态、真实共享 SDK 的 UTF-8 解码，以及版本绑定的
+取消 commit-first、锁内权限快照、精确旧 owner 目标、durable 一次性投递与恢复
+排除。见[产品映射、复现命令和验收边界](docs/REPAIR-RELEASE.md)。
+产品输入已在另行批准的部署中通过有界原生自取消及离线 provider CLI 验收；
+本次发布不部署新目标。便携发布前测试已通过，远端精确提交的 fresh-clone/CI
+须另行核对。真实 rich OMP/provider goal 完整 E2E 未验收；本轮未实现通用业务
+自动 checkpoint/soft-closeout。[原事故 issue #1](https://github.com/Loveacup/paperclip-hermes-integration/issues/1) 的宽泛标准保持 OPEN。
+
 ## ✨ 你会得到什么
 
 | 组件 | 职责 | 带来的价值 |

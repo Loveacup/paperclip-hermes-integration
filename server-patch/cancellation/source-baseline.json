@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "name": "@paperclipai/server",
+      "version": "2026.1005.0",
+      "tarball": "https://registry.npmjs.org/@paperclipai/server/-/server-2026.1005.0.tgz",
+      "integrity": "sha512-aqOP7l0yong2VAeIWOq5Gfvi4LYi3/iYlyMsMakDW0raDDida+6QKRZ7a41wO2mxId5OfEz1Gqh9/M0gs7QcnQ==",
+      "sha256": "50d5032f9a47611866b58a8013e946e4ae0683a48ddc2fa424e2e46220cb9139"
+    }
+  ],
+  "files": [
+    {
+      "path": "routes/issues.js",
+      "kind": "target",
+      "sha256": "3e337fb732708ed9e9399a9eaedf4a6415e1537ed3b77e3a4319d5580a98a69e"
+    },
+    {
+      "path": "services/heartbeat.js",
+      "kind": "target",
+      "sha256": "e539f436e33f704689c6b059b1c02500a1f652fc903055f2d5d66a079bf99601"
+    },
+    {
+      "path": "services/native-runtime/native-session-executor.js",
+      "kind": "target",
+      "sha256": "c225a1f68a9dd4dbd331c56b4c970231ddc7439dcf4acacf6e083552086d16e9"
+    },
+    {
+      "path": "services/runner-goal-control-broker.js",
+      "kind": "target",
+      "sha256": "dc7f0a3b1c63e297a4d6edee5a30f634894f7658d05642011fff8714c1b8939a"
+    },
+    {
+      "path": "services/runner-goals.js",
+      "kind": "target",
+      "sha256": "9d31b81c7e91d9dc6fec29dec33bb3aedfb0587cb9b43e672c306b0ec0304e00"
+    },
+    {
+      "path": "vendor/paperclip-runner/backends/harness-driver-backend.js",
+      "kind": "target",
+      "sha256": "52d7cbb706fa1e01ae10695c2e808976d037f6d717756d5583286410ef794780"
+    },
+    {
+      "path": "vendor/paperclip-runner/control-plane/durable-prp-control-plane.js",
+      "kind": "target",
+      "sha256": "fc0386150ae3f2a3cd6f86741b7a15c035d61782dd4a0a1873a486ba31ffdd2c"
+    },
+    {
+      "path": "vendor/paperclip-runner/drivers/codex/codex-harness-session.js",
+      "kind": "target",
+      "sha256": "ef9f16260b15f6fab896c2f7fea8e823b235365e5bc10c2ac3bf1e2e10b3149f"
+    },
+    {
+      "path": "vendor/paperclip-runner/live/runnerd-codex-transport.js",
+      "kind": "target",
+      "sha256": "2911dbff67ebf82c2212fff02bc42b037b5a0b79a207e87800db0e1b18141b7c"
+    },
+    {
+      "path": "vendor/paperclip-runner/native-session-runtime.js",
+      "kind": "target",
+      "sha256": "17bba275a714ed286341927ab1349e4ab863d5e5bfdcace9c110ba8f43280101"
+    }
+  ]
+}

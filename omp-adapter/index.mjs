@@ -77,43 +77,59 @@ async function prepare(ctx) {
   return {cwd,model,timeoutSec,graceSec,permission,env,prompt};
 }
 function failure(code,message) { return {exitCode:1,signal:null,timedOut:false,errorCode:code,errorMessage:message,clearSession:true,sessionParams:null,sessionId:null}; }
+const MAX_LINE_BYTES=8*1024*1024;
+const eventTypes=new Set(['agent_start','agent_end','turn_start','turn_end','message_start','message_update','message_end','tool_execution_start','tool_execution_update','tool_execution_end','advisor_yielded']);
 function outputCollector() {
   let pending='', text='', stop=null, providerError=null, resolvedProvider=null, resolvedModel=null, failed=false, count=0, toolErrorCount=0;
+  let reason=null, maxLineBytes=0, lastEventType=null;
+  const eventCounts={}, progress=[];
+  let progressCount=0;
+  const progressTypes=new Set(['agent_start','turn_start','turn_end','tool_execution_start','tool_execution_end']);
+  const fail=code=>{failed=true;reason??=code;};
   const line = (value) => {
     if(!value.trim() || failed) return;
-    if(++count>50000) {failed=true;return;}
+    if(++count>50000) {fail('event_limit');return;}
     try {
       const e=JSON.parse(value);
-      if(!e || typeof e.type!=='string' || Array.isArray(e)) {failed=true;return;}
-      if(stop!==null && !(e.type==='advisor_yielded' && Object.keys(e).length===1)) {failed=true;return;}
+      if(!e || typeof e.type!=='string' || Array.isArray(e)) {fail('invalid_event');return;}
+      lastEventType=eventTypes.has(e.type)?e.type:'other';
+      eventCounts[lastEventType]=(eventCounts[lastEventType]??0)+1;
+      if(stop!==null && !(e.type==='advisor_yielded' && Object.keys(e).length===1)) {fail(e.type==='agent_end'?'duplicate_terminal':'activity_after_terminal');return;}
+      if(progressTypes.has(e.type) && progressCount<64 && (eventCounts[lastEventType]===1 || eventCounts[lastEventType]%100===0)) {
+        progressCount++;
+        progress.push({kind:'omp_native_progress',eventType:lastEventType,eventCount:count,typeCount:eventCounts[lastEventType],maxLineBytes});
+      }
       if(e.type==='tool_execution_end' && e.isError===true) toolErrorCount++;
       if(e.type==='agent_end') {
-        if(!Array.isArray(e.messages) || (e.willContinue!==undefined && typeof e.willContinue!=='boolean') || (e.isTerminal!==undefined && typeof e.isTerminal!=='boolean')) {failed=true;return;}
+        if(!Array.isArray(e.messages) || (e.willContinue!==undefined && typeof e.willContinue!=='boolean') || (e.isTerminal!==undefined && typeof e.isTerminal!=='boolean')) {fail('invalid_terminal');return;}
         if(e.willContinue===true || e.isTerminal===false) return;
         const m=e.messages.findLast(m=>m?.role==='assistant');
-        if(!m || !['stop','length','toolUse','error','aborted'].includes(m.stopReason) || !Array.isArray(m.content)) {failed=true;return;}
+        if(!m || !['stop','length','toolUse','error','aborted'].includes(m.stopReason) || !Array.isArray(m.content)) {fail('invalid_assistant');return;}
         stop=m.stopReason;
         const identity=value=>typeof value==='string' && /^[A-Za-z0-9][A-Za-z0-9._:/@+\[\]-]{0,199}$/.test(value) ? value : null;
         resolvedProvider=identity(m.provider);
         resolvedModel=identity(m.model);
         providerError=typeof m.errorMessage==='string' ? m.errorMessage : null;
         text=m.content.filter(p=>p?.type==='text'&&typeof p.text==='string').map(p=>p.text).join('\n');
-        if(text.length>65536 || (providerError?.length ?? 0)>65536) {failed=true;text='';providerError=null;}
+        if(text.length>65536 || (providerError?.length ?? 0)>65536) {fail('terminal_text_limit');text='';providerError=null;}
       }
-    } catch {failed=true;}
+    } catch {fail('malformed_json');}
   };
   return {
+    drainProgress() {return progress.splice(0);},
     feed(chunk) {
       if(failed) return;
       pending+=chunk;
       let index;
       while((index=pending.indexOf('\n'))>=0) {
-        if(index>1024*1024) {failed=true;pending='';return;}
+        maxLineBytes=Math.max(maxLineBytes,Buffer.byteLength(pending.slice(0,index)));
+        if(maxLineBytes>MAX_LINE_BYTES) {fail('line_limit');pending='';return;}
         line(pending.slice(0,index)); pending=pending.slice(index+1);
       }
-      if(pending.length>1024*1024) {failed=true;pending='';}
+      maxLineBytes=Math.max(maxLineBytes,Buffer.byteLength(pending));
+      if(maxLineBytes>MAX_LINE_BYTES) {fail('line_limit');pending='';}
     },
-    finish() {if(pending.trim()) failed=true; return {text,stop,providerError,resolvedProvider,resolvedModel,failed,toolErrorCount};},
+    finish() {if(pending.trim()) fail('truncated_line'); if(!failed&&stop===null) fail('missing_terminal'); return {text,stop,providerError,resolvedProvider,resolvedModel,failed,toolErrorCount,protocolDiagnostic:{reason,eventCount:count,maxLineBytes,lastEventType,eventCounts}};},
   };
 }
 function redactor(env) {
@@ -207,7 +223,14 @@ export function createServerAdapter({ command, prefixArgs = [] } = {}) {
         executionEvidence.sdkTimerStatus='unknown';
         proc=await runChildProcess(ctx.runId,command,[...prefixArgs,...args],{
           cwd:cfg.cwd,env,timeoutSec:cfg.timeoutSec,graceSec:cfg.graceSec,stdin:prompt,
-          onLog:async(stream,chunk)=>{if(stream==='stdout') output.feed(chunk);},
+          onLog:async(stream,chunk)=>{
+            if(stream!=='stdout') return;
+            output.feed(chunk);
+            for(const progress of output.drainProgress()) {
+              if(publicationFailed) break;
+              try {await ctx.onLog('stdout',JSON.stringify(progress)+'\n');} catch {publicationFailed=true;}
+            }
+          },
           onLogError:()=>{publicationFailed=true;},
           onSpawn:async(meta)=>{executionEvidence.dispatchStarted=true;ctx.onDispatch?.();await ctx.onSpawn?.(meta);},
         });
@@ -234,7 +257,7 @@ export function createServerAdapter({ command, prefixArgs = [] } = {}) {
       const ok=!cancelled&&!publicationFailed&&proc.exitCode===0&&!proc.signal&&!proc.timedOut&&!parsed.failed&&parsed.stop==='stop'&&!modelError;
       return {exitCode:ok ? 0 : (proc.exitCode || 1),signal:proc.signal,timedOut:proc.timedOut,summary,model:actualModel ? clean(actualModel):null,...modelFields,clearSession:true,sessionId:null,sessionParams:null,
         ...(ok ? {} : {errorCode:cancelled ? 'omp_native_cancelled' : proc.timedOut ? 'omp_native_timeout' : publicationFailed ? 'omp_native_publication_failed' : !parsed.failed&&parsed.stop==='error' ? 'omp_native_provider_error' : !parsed.failed&&parsed.stop==='stop'&&modelError ? modelError : 'omp_native_run_failed',errorMessage:'OMP did not return a clean terminal assistant stop with verified model identity and exit zero.'}),
-        resultJson:{adapter:ADAPTER_TYPE,observability,executionEvidence,outputEvidence,...modelFields,stopReason:parsed.stop,providerError:!parsed.failed&&parsed.providerError ? clean(parsed.providerError):null,processExitCode:proc.exitCode,toolErrorCount:parsed.toolErrorCount,runOutcome:ok?'succeeded':'failed',issueCompletion:'not_asserted_by_adapter'},
+        resultJson:{adapter:ADAPTER_TYPE,observability,executionEvidence,outputEvidence,...modelFields,protocolDiagnostic:parsed.protocolDiagnostic,stopReason:parsed.stop,providerError:!parsed.failed&&parsed.providerError ? clean(parsed.providerError):null,processExitCode:proc.exitCode,toolErrorCount:parsed.toolErrorCount,runOutcome:ok?'succeeded':'failed',issueCompletion:'not_asserted_by_adapter'},
       };
     },
   };

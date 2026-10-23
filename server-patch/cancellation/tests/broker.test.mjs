@@ -1,0 +1,42 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as broker from './candidate/services/runner-goal-control-broker.js';
+const binding = {companyId:'company', issueId:'issue', agentId:'agent'};
+test('R1: old run must not select successor controller', async () => {
+  broker.runnerGoalControlBrokerInternals.resetForTests();
+  const effects=[];
+  broker.registerLiveRunnerGoalController({...binding,runId:'old'}, {control: c=>effects.push(['old',c.action])});
+  broker.registerLiveRunnerGoalController({...binding,runId:'new'}, {control: c=>effects.push(['new',c.action])});
+  const dispatch=broker.dispatchLiveRunnerGoalControl({...binding,runId:'old'}, {action:'pause',requestId:'cancel'});
+  if (dispatch) await dispatch.completion;
+  assert.deepEqual(effects,[]);
+  assert.equal(dispatch,null);
+});
+test('R2: captured registration rejects A to B to A and deferred replacement', async () => {
+  broker.runnerGoalControlBrokerInternals.resetForTests();
+  const effects=[];
+  const register=runId=>broker.registerLiveRunnerGoalController({...binding,runId},{control:()=>effects.push(runId)});
+  register('A');
+  assert.equal(typeof broker.captureLiveRunnerGoalController, 'function', 'normal registration needs a capturable generation');
+  const old=broker.captureLiveRunnerGoalController({...binding,runId:'A'});
+  assert.equal(typeof old.controllerGeneration,'string');
+  register('B'); register('A');
+  assert.equal(broker.dispatchLiveRunnerGoalControl(old,{action:'pause'}),null);
+  const fresh=broker.captureLiveRunnerGoalController({...binding,runId:'A'});
+  const queued=broker.dispatchLiveRunnerGoalControl(fresh,{action:'clear'});
+  register('B');
+  await assert.rejects(queued.completion,{message:'runner_goal_controller_replaced'});
+  assert.deepEqual(effects,[]);
+  const current=broker.captureLiveRunnerGoalController({...binding,runId:'B'});
+  await broker.dispatchLiveRunnerGoalControl(current,{action:'pause'}).completion;
+  assert.deepEqual(effects,['B']);
+});
+test('CONTROL: ordinary latest-controller dispatch remains supported', async () => {
+  broker.runnerGoalControlBrokerInternals.resetForTests();
+  const effects=[];
+  broker.registerLiveRunnerGoalController({...binding,runId:'new'}, {control:c=>effects.push(c.action)});
+  const dispatch=broker.dispatchLiveRunnerGoalControl(binding,{action:'clear'});
+  await dispatch.completion;
+  assert.equal(dispatch.runId,'new');
+  assert.deepEqual(effects,['clear']);
+});

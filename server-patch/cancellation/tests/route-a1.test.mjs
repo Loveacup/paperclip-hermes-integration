@@ -1,0 +1,46 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {isDeepStrictEqual} from 'node:util';
+import {createHarness} from './cancel-harness.mjs';
+import * as broker from './candidate/services/runner-goal-control-broker.js';
+const source=readFileSync(new URL('./candidate/services/runner-goals.js',import.meta.url),'utf8');
+const body=source.slice(source.indexOf('export async function registerTargetedRunnerGoalStop('),source.indexOf('// End internal targeted one-shot controls.')).replaceAll('export ','');
+const table=name=>new Proxy({name},{get:(t,k)=>k==='name'?name:`${name}.${String(k)}`} );
+export function fixture(options={}) {
+ const h=createHarness(options);
+ const events=[]; let committed={actions:[],audits:[],issue:null}; let state=committed;
+ const session={id:'db-session',companyId:'company',agentId:'agent',taskKey:'issue',adapterType:'paperclip_runner',goalRevision:7,goalCapabilityJson:{actions:[options.goalPause?'pause':'clear']}};
+ const run={id:'active-run',companyId:'company',agentId:options.issue?.assigneeAgentId??'agent',status:'running',contextSnapshot:{issueId:'issue'}};
+ const tables={agentTaskSessions:table('sessions'),agentSessionGoalActions:table('actions'),agents:table('agents')};
+ const sandbox=h.sandbox;
+ Object.assign(sandbox,tables,broker,{isDeepStrictEqual});
+ const query=rows=>{let selected=rows;const q={where(pred){const match=p=>p.parts?p.parts.every(match):selected;const check=(r,p)=>p.parts?p.parts.every(x=>check(r,x)):r[String(p.field).split('.').at(-1)]===p.value;selected=selected.filter(r=>check(r,pred));return q;},limit(n){selected=selected.slice(0,n);return q;},for(){return q;},orderBy(){return q;},then(a,b){return Promise.resolve(selected).then(a,b);}};return q;};
+ const originalSelect=sandbox.db.select;
+ sandbox.db.select=()=>({from(t){if(t===tables.agentTaskSessions)return query(options.noSession?[]:[session]);if(t===tables.agentSessionGoalActions)return query(state.actions);if(t===tables.agents)return query([{id:run.agentId,companyId:'company',adapterType:'paperclip_runner'}]);if(t===sandbox.heartbeatRuns)return query([run,...(options.scopeRun?[options.scopeRun]:[])]);return originalSelect().from(t);}});
+ sandbox.db.insert=t=>({values(v){if(t!==tables.agentSessionGoalActions)throw Error('unexpected table');const row={id:'action',...structuredClone(v)};state.actions.push(row);events.push('register');return {onConflictDoNothing(){return {returning:async()=>[row]};}};}});
+ sandbox.db.update=t=>({set(v){return {where:async()=>{if(options.outcomeWriteFailure&&v.resultJson?.phase==='consumed'&&v.resultJson?.outcome==='confirmed')throw Error('outcome write failed');Object.assign(state.actions[0],structuredClone(v));events.push('action:'+v.resultJson?.phase);}};}});
+ sandbox.db.transaction=async fn=>{const previous=state;state=structuredClone(committed);try {const r=await fn(sandbox.db);if(options.commitFailure&&state.issue)throw Error('commit failed');committed=state;events.push('commit');if(options.replaceOnCommit&&state.issue&&state.actions[0]?.resultJson.phase==='registered')broker.registerLiveRunnerGoalController({companyId:'company',issueId:'issue',agentId:'agent',runId:'successor',goalTarget:{sessionId:'native-session',runId:'successor',threadId:'thread',ownerEpoch:'new-epoch'}},{control:async()=>{throw Error('successor must not receive stop');}});return r;}catch(e){state=previous;events.push('rollback');throw e;}};
+ const update=sandbox.svc.update;
+ sandbox.svc.update=async(...args)=>{const result=await update(...args);state.issue=result;events.push('persist');return result;};
+ sandbox.logActivity=async(_db,event)=>{if(options.logFailure&&committed.issue)throw Error('log failed');state.audits.push(structuredClone(event));h.calls.activity.push(event);};
+ sandbox.heartbeat.getRun=async()=>run;
+ sandbox.heartbeat.getActiveRunForAgent=async()=>{throw Error('must not chase successor');};
+ sandbox.heartbeat.cancelRun=async(id,_reason,opts)=>{assert.equal(committed.issue?.status,'cancelled');events.push('run:'+id);h.calls.cancelled.push(id);if(options.runFailure)throw Error('stop failed');return options.oldTerminal?{...run,status:'failed',resultJson:{}}:{...run,status:'cancelled',resultJson:{...opts?.resultJson,...(options.nativeReceipt?{nativeCancellation:{dispatchState:'acknowledged',runId:id}}:{executionCancellation:{state:'acknowledged'}})}};};
+ const api=Function('agentTaskSessions','agentSessionGoalActions','and','eq','dispatchLiveRunnerGoalControl','isDeepStrictEqual',body+';return {registerTargetedRunnerGoalStop,dispatchTargetedRunnerGoalStop};')(tables.agentTaskSessions,tables.agentSessionGoalActions,sandbox.and,sandbox.eq,broker.dispatchLiveRunnerGoalControl,isDeepStrictEqual);
+ Object.assign(sandbox,api);
+ broker.runnerGoalControlBrokerInternals.resetForTests();
+ broker.registerLiveRunnerGoalController({...run,companyId:'company',issueId:'issue',agentId:'agent',runId:'active-run',goalTarget:{sessionId:'native-session',runId:'active-run',threadId:'thread',ownerEpoch:'epoch'}},{control:async c=>{assert.equal(committed.issue?.status,'cancelled');assert.equal(committed.actions[0].resultJson.phase,'consumed');events.push('goal:'+c.action);if(options.goalFailure)throw Error('transport uncertain');return {status:'confirmed',requestId:c.requestId,action:c.action,target:c.target};}});
+ sandbox.assertCanAssignTasks=async()=>{}; sandbox.resolveAssignmentProjectId=async()=>null;
+ sandbox.authenticatedActorResponsibleUserId=()=>null;sandbox.sourceTrustForActorWrite=async()=>({});
+ sandbox.svc.addComment=async()=>{if(options.attachmentFailure)throw Error('attachment invalid');return {id:'comment'};};
+ return {...h,events,get committed(){return committed;},api};
+}
+test('A1: commit cancellation and durable receipt before exact goal and old-run stop',async()=>{
+ const f=fixture();const result=await f.run();assert.equal(result.issue.status,'cancelled');
+ assert.deepEqual(f.events.filter(x=>x==='persist'||x==='register'||x==='commit'||x.startsWith('goal:')||x.startsWith('run:')),['persist','register','commit','commit','goal:clear','run:active-run']);
+ assert.equal(f.committed.actions[0].payloadJson.target.goalTarget.sessionId,'native-session');assert.equal(f.committed.actions[0].sessionId,'db-session');
+ assert.equal(f.committed.actions[0].resultJson.outcome,'confirmed');assert.equal(result.cancelledStatusRunId,'active-run');
+ assert.equal(f.committed.audits.at(-1).details.runOutcome,'confirmed');
+ await f.api.dispatchTargetedRunnerGoalStop(f.sandbox.db,{companyId:'company',sessionId:'db-session',requestId:f.committed.actions[0].requestId});assert.equal(f.events.filter(x=>x==='goal:clear').length,1);
+});

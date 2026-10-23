@@ -24,6 +24,19 @@ Connect **Paperclip** task changes to a precisely bound **Hermes** conversation,
 > [!NOTE]
 > **Start locally. Activate deliberately.** Quick start installs dependencies and runs synthetic offline checks. It does not deploy services, invoke a real model, or send messages.
 
+## Current repair status
+
+This source revision includes bounded 8 MiB OMP terminals, real shared-SDK UTF-8
+decoding, and version-bound commit-first cancellation with locked authorization,
+exact old-owner targeting and durable one-shot delivery/recovery exclusion.
+See [product mapping, commands and acceptance limits](docs/REPAIR-RELEASE.md).
+The product inputs were separately deployed and passed bounded native self-cancel
+and offline-provider CLI checks; this publication does not deploy a new target.
+Portable pre-publication tests passed; exact-commit fresh-clone/CI results must be
+checked separately. Full live rich OMP/provider goal E2E remains unverified;
+automatic business checkpoint/soft-closeout is not implemented by this repair.
+The broader [incident issue #1](https://github.com/Loveacup/paperclip-hermes-integration/issues/1) remains open.
+
 ## ✨ What you get
 
 | Component | Role | Why it matters |

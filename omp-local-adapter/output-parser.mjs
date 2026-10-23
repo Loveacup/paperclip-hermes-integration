@@ -2,14 +2,16 @@
 // Frozen interface: ADAPT-OUT-1 output-adapt.test.mjs, group "module".
 //
 // Memory is bounded: the parser keeps only the session id, the current final
-// candidate (one line, <= maxLineBytes), the advisor pairing state (a digest,
-// not the message), counters, and a line buffer of at most maxLineBytes.
+// candidate (one line, <= maxTerminalLineBytes), advisor pairing (a digest),
+// counters, and a line buffer of at most maxTerminalLineBytes.
 // It never keeps the full stream text.
 import { createHash } from "node:crypto";
 import { MAX_CAPTURE_BYTES } from "@paperclipai/adapter-utils/server-utils";
 
-// Same values as index.mjs; do not raise.
+// Ordinary events stay at 1 MiB. Terminal snapshots include accumulated
+// history, so permit a separate bounded 8 MiB envelope (not a capture increase).
 export const DEFAULT_MAX_LINE_BYTES = 1024 * 1024;
+export const DEFAULT_MAX_TERMINAL_LINE_BYTES = 8 * 1024 * 1024;
 export const DEFAULT_MAX_EVENTS = 50_000;
 export const DEFAULT_MAX_FINAL_TEXT_CHARS = 64 * 1024;
 
@@ -60,6 +62,8 @@ function isHighSurrogate(code) {
  */
 export function createOmpOutputParser(limits = {}) {
   const maxLineBytes = limits.maxLineBytes ?? DEFAULT_MAX_LINE_BYTES;
+  // Explicit caller caps remain strict; only the default gains terminal room.
+  const maxTerminalLineBytes = limits.maxLineBytes ?? DEFAULT_MAX_TERMINAL_LINE_BYTES;
   const maxEvents = limits.maxEvents ?? DEFAULT_MAX_EVENTS;
 
   let sessionId = null;
@@ -145,6 +149,7 @@ export function createOmpOutputParser(limits = {}) {
       oversizedLines += 1;
       return;
     }
+    const completeBytes = lineBytes;
     const lineText = takeLine().toString("utf8").trim();
     if (lineText.length === 0) return;
     if (lines >= maxEvents) {
@@ -163,12 +168,18 @@ export function createOmpOutputParser(limits = {}) {
       malformedLines += 1;
       return;
     }
+    if (completeBytes > maxLineBytes && !(event.type === "agent_end" &&
+        Array.isArray(event.messages) && event.isTerminal === true &&
+        (event.willContinue === undefined || event.willContinue === false))) {
+      oversizedLines += 1;
+      return;
+    }
     handleEvent(event);
   }
 
   function append(buf, start, stop) {
     if (skippingOversized || stop <= start) return;
-    if (lineBytes + (stop - start) > maxLineBytes) {
+    if (lineBytes + (stop - start) > maxTerminalLineBytes) {
       lineParts = [];
       lineBytes = 0;
       skippingOversized = true;
@@ -243,7 +254,7 @@ export function createOmpOutputParser(limits = {}) {
         finalsInvalidated,
         damage,
         counts: { lines, malformedLines, oversizedLines, events, bytesSeen },
-        diagnostics: { maxLineBytes, maxEvents, eventCapExceeded, truncatedTail, advisorPairsExempted, advisorYieldedExempted },
+        diagnostics: { maxLineBytes, maxTerminalLineBytes, maxEvents, eventCapExceeded, truncatedTail, advisorPairsExempted, advisorYieldedExempted },
       };
     },
   };

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "name": "@paperclipai/adapter-utils",
+      "version": "2026.1005.0",
+      "tarball": "https://registry.npmjs.org/@paperclipai/adapter-utils/-/adapter-utils-2026.1005.0.tgz",
+      "integrity": "sha512-6JYjP5x/Dr73giAjbZZtgd6Ytag14OzdOi7OVlcMB1o2qOxKg/XMTwsdNPiIG4V5e04E8c6kSlS7dM4ScHx9qg==",
+      "sha256": "62b9dd923be37a91477b341d881f55edd8abf8916d600bb023620bb362e67c51"
+    }
+  ],
+  "files": [
+    {
+      "path": "server-utils.js",
+      "kind": "target",
+      "sha256": "b586df219b3286f795e6e243d3c898b2c57f1f39e61e0ca3ef5722f4bceb057f"
+    }
+  ]
+}

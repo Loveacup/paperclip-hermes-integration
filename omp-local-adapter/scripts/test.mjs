@@ -7,7 +7,7 @@ const root = path.resolve(import.meta.dirname,'..');
 export const suites = [
   'index','skills','runtime-skills','output-adapt','omp-baseline','p0c-rev','p0c-rev2',
   'index-baseline','baseline-env','cap-boundary','replay-guard','async-admission',
-  'model-select','model-select-f2','deadline-window','deadline-jobs','installation','host-installation','host-binding',
+  'model-select','model-select-f2','deadline-window','deadline-jobs','installation','host-installation','host-binding','large-terminal-boundary',
 ].map(name => `tests/${name}.test.mjs`);
 const discovered = readdirSync(path.join(root,'tests')).filter(n=>n.endsWith('.test.mjs')).map(n=>`tests/${n}`).sort();
 if (JSON.stringify([...suites].sort()) !== JSON.stringify(discovered)) throw Error('test_manifest_incomplete');

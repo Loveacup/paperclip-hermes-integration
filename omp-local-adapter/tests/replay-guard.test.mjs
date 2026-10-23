@@ -226,7 +226,7 @@ test("G3 guard (synthetic advisor): agent_end -> 2 advisor message pairs -> advi
   assert.deepEqual(r.resultJson.diagnostics.damage, []);
 });
 
-test("G4 guard (planner ruling, fail-closed): agent_end single line of maxLineBytes+1 -> omp_output_damaged with oversized_lines", async () => {
+test("G4 guard: large terminal assistant text still fails the unchanged final text cap", async () => {
   const MAX_LINE_BYTES = 1024 * 1024;
   const end = (text) => JSON.stringify({ type: "agent_end", messages: [assistant(text)], isTerminal: true, yielded: true });
   const endLine = end("x".repeat(MAX_LINE_BYTES + 1 - end("").length));
@@ -234,5 +234,5 @@ test("G4 guard (planner ruling, fail-closed): agent_end single line of maxLineBy
   const stdout = headStdout(assistant("done")) + endLine + "\n";
   const r = await runWith({ chunks: chunked(stdout), stdout, exitCode: 0 });
   assert.equal(r.errorCode, "omp_output_damaged", r.errorMessage);
-  assert.ok(r.resultJson.diagnostics.damage.includes("oversized_lines"), JSON.stringify(r.resultJson.diagnostics.damage));
+  assert.ok(r.resultJson.diagnostics.damage.includes("final_text_cap"), JSON.stringify(r.resultJson.diagnostics.damage));
 });

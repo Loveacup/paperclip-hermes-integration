@@ -1,0 +1,13 @@
+[
+  {
+    "path": "server-utils.js",
+    "baselineSha256": "b586df219b3286f795e6e243d3c898b2c57f1f39e61e0ca3ef5722f4bceb057f",
+    "candidateSha256": "8992816d98a1aa599f040918deefaaf6060ebe836a7c6a223f96233c3a5e0a72",
+    "edits": [
+      {
+        "old": "                    }, Math.max(1, opts.graceSec) * 1000);\n                }, opts.timeoutSec * 1000)\n                : null;\n            child.stdout?.on(\"data\", (chunk) => {\n                const readable = child.stdout;\n                if (!readable)\n",
+        "new": "                    }, Math.max(1, opts.graceSec) * 1000);\n                }, opts.timeoutSec * 1000)\n                : null;\n            // Decode across Buffer boundaries; Readable flushes its decoder at EOF\n            // before child close, so capture and the existing logChain see the tail.\n            child.stdout?.setEncoding(\"utf8\");\n            child.stderr?.setEncoding(\"utf8\");\n            child.stdout?.on(\"data\", (chunk) => {\n                const readable = child.stdout;\n                if (!readable)\n"
+      }
+    ]
+  }
+]

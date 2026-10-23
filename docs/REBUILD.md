@@ -29,6 +29,10 @@ Included product boundaries:
 
 ## 2. Supply explicit host prerequisites
 
+For bounded-output and commit-first cancellation repairs, follow the additional
+[version-bound bundle and test instructions](REPAIR-RELEASE.md); root installation
+does not silently patch an SDK or server. Keep deployment acceptance separate.
+
 - Node **24.11.0+**, npm and Python **3.9+**, on a supported POSIX target.
 - Public Paperclip server/shared/adapter SDK **2026.1005.0**, with the selected installation's dependency closure. The patch's public tarball integrity and six guarded file hashes are in `server-patch/source-baseline.json`.
 - A Hermes installation satisfying the documented injection/routing contracts; verify the actual target with the host checks below. This repository does not promise arbitrary Hermes versions or vendor its core.
